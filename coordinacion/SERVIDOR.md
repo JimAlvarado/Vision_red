@@ -1,12 +1,22 @@
 # Estado de Windows Server — Claude
 
-Actualizado por Claude: 5 de octubre de 2026, 13:30 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
+Actualizado por Claude: 5 de octubre de 2026, 15:30 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
 
 ## Situación actual
 
 - Ruta: `C:\Proyectos\Vision_red`; servicio: `Vision` (automático, cuenta de dominio del usuario).
-- Commit de aplicación ejecutado: `29d20f0`. HEAD local: `dfa0186`. **`71153f5` todavía no se aplicó** (ver Intervención 2).
-- Servicio, panel, mapa y acceso móvil funcionando. **Correo: Microsoft rechaza los envíos por límite diario del buzón** (ver abajo).
+- Commit de aplicación ejecutado: `fc9c0c7` (incluye `71153f5`). HEAD local: `72fc5af`, sin cambios locales.
+- Servicio, panel, mapa y acceso móvil funcionando.
+- Correo: **sin migrar**. Sigue el buzón personal (`personal-device-code`), autorizado, envío automático de red **habilitado**, avisos al autor **desactivados** (no se ejecutó `Configurar-Avisos-Autor.ps1` ni `Configurar-Correo-Institucional.ps1`), 3 destinatarios. El límite diario de Outlook.com puede seguir activo.
+
+## Intervención 3 — 5 de octubre de 2026, 15:22–15:30: actualización a `72fc5af`
+
+- Revisión previa de `fc9c0c7`/`72fc5af`: modo personal sigue usando `consumers` (compatible con la configuración actual); prefijo `[VISION-APODACA]` correcto; `.gz`/`.br` de `correo.*` coinciden; `Configurar-Correo-Institucional.ps1` respalda antes de cambiar y deja ambos canales apagados. Sin observaciones bloqueantes.
+- Detener (UAC) y confirmar proceso cerrado → respaldo de `datos` (zip local fuera de Git) → `git pull --ff-only` con árbol limpio → iniciar (UAC) y confirmar `Running`.
+- `.exe`/`.dll` idénticos a HEAD; 19 archivos de `datos` con el mismo SHA-256 antes y después del pull.
+- Mapa 19 equipos/18 enlaces/revisión 172; detección activa, condición `operating`; `correo.html` sirve la versión con avisos al autor; móvil 200 en localhost; `PUT /api/email/recipients` por móvil o sin cabecera de editor → 403.
+- Al arrancar se repitió una vez el error conocido del diario JSONL (ver pendientes).
+- Migración institucional (pasos 3–4 de G15.md) **no realizada**: requiere remitente institucional y correo del autor que el usuario debe indicar en este chat. Sin correos enviados.
 
 ## Intervención 2 — 5 de octubre de 2026, 12:40–13:30: correos que no salen
 
@@ -26,12 +36,12 @@ Actualizado por Claude: 5 de octubre de 2026, 13:30 (Ciudad de México). Todo lo
 5. **`71153f5` comparte el mismo cupo:** cada inicio de sesión móvil válido envía un correo al autor. El código es compartido; quien lo conozca puede iniciar sesión repetidamente (sin cookie, varios dispositivos) y agotar el cupo diario, dejando sin alertas de red. Sugerencia: límite o resumen de avisos de acceso (p. ej. uno por IP/dispositivo por día, o resumen diario), y que las alertas de red tengan prioridad en la cola sobre los avisos al autor (hoy la cola es FIFO común).
 6. A mediano plazo: un buzón corporativo de Microsoft 365 tiene límites mucho mayores que una cuenta personal de Outlook.com.
 
-### Revisión de `71153f5` por Claude (sin aplicar)
+### Revisión de `71153f5` por Claude (aplicado en Intervención 3, avisos al autor sin configurar)
 
 - Correcto: canal exclusivo del autor, deduplicación de altas con id persistente, HTML codificado, login con sesión activa no duplica aviso, consulta móvil no expone destinatarios.
 - `Configurar-Avisos-Autor.ps1` probado en este servidor (Windows PowerShell 5.1) sobre una copia de `datos` con correo ficticio: conserva los campos, agrega al autor y genera `owner-notifications.json`. Escribe UTF-8 con BOM; .NET lo lee sin problema.
 - Riesgo menor: si `owner-notifications.json` queda mal formado, `OwnerNotifications` lanza excepción al construirse y el canal de correo no arranca.
-- Se aplicará cuando el usuario lo encargue y el buzón vuelva a aceptar envíos; hoy sus pruebas fallarían por el límite.
+- La configuración del autor y su prueba quedan para la migración institucional.
 
 ## Intervención 1 — 5 de octubre de 2026, 12:28–12:35: actualización a `29d20f0`
 
