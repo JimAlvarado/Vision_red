@@ -3,14 +3,17 @@ using System.Net;
 public static class AlertMessage
 {
     public const string AccessIp = "monitor-access";
+    public const string SubjectPrefix = "[VISION-APODACA]";
+    public static string Subject(string text) => text.StartsWith(SubjectPrefix, StringComparison.OrdinalIgnoreCase)
+        ? text : $"{SubjectPrefix} {text}";
     private static readonly TimeZoneInfo Zone = TimeZoneInfo.FindSystemTimeZoneById("America/Mexico_City");
     public static (string Subject, string Html) Compose(Incident incident, string kind)
     {
         var recovery = kind == "recovery";
         var network = incident.Ip == AccessIp;
         var title = network ? recovery ? "Acceso a la red restablecido" : "Pérdida de acceso a la red monitoreada" :
-            recovery ? "Conectividad restablecida" : "Equipo sin respuesta";
-        var subject = $"Vision Apodaca | {title}" + (network ? "" : $" | {incident.Name} ({incident.Ip})");
+            recovery ? "Conectividad restablecida" : "Caída confirmada";
+        var subject = Subject(title + (network ? "" : $" | {incident.Name} ({incident.Ip})"));
         string Encode(string value) => WebUtility.HtmlEncode(value);
         string Time(DateTimeOffset time) => FormatTime(time);
         var explanation = network ? recovery ? "Vision volvió a obtener respuesta de la red monitoreada." :

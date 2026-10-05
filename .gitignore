@@ -21,6 +21,8 @@
 !/work/tooling/activar-desarrollo.ps1
 !/work/tooling/Configurar-Avisos-Autor.ps1
 !/work/tooling/Probar-Avisos-Autor.ps1
+!/work/tooling/Probar-Correo-Institucional.ps1
+!/work/tooling/Configurar-Correo-Institucional.ps1
 !/work/tooling/test-owner/
 /work/tooling/test-owner/*
 !/work/tooling/test-owner/TestOwner.csproj

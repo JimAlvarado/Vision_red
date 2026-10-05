@@ -23,7 +23,7 @@ public sealed class OwnerNotifications
     {
         if (!Enabled || addresses.Length == 0) return;
         var rows = string.Join("", addresses.Select(address => "<li>" + WebUtility.HtmlEncode(address) + "</li>"));
-        Queue("recipient_added", "Nuevo destinatario", "Vision | Nuevo destinatario de notificaciones",
+        Queue("recipient_added", "Nuevo destinatario", AlertMessage.Subject("Nuevo destinatario"),
             $"<p>Se agregaron estos correos a los destinatarios de Vision:</p><ul>{rows}</ul><p>Operación realizada desde el editor local. El editor no identifica a la persona que realizó el cambio.</p>", "", now, eventId);
     }
     public void MobileLogin(string ip, string userAgent, DateTimeOffset now)
@@ -34,7 +34,7 @@ public sealed class OwnerNotifications
             agent.Contains("iPhone", StringComparison.OrdinalIgnoreCase) ? "Celular iPhone" :
             agent.Contains("Android", StringComparison.OrdinalIgnoreCase) ? "Dispositivo Android" :
             agent.Contains("Windows", StringComparison.OrdinalIgnoreCase) ? "Equipo Windows" : "Dispositivo de consulta";
-        Queue("mobile_login", device, "Vision | Nuevo acceso a la consulta móvil",
+        Queue("mobile_login", device, AlertMessage.Subject("Acceso móvil"),
             $"<p>Se inició sesión correctamente en la consulta de Vision.</p><p><b>Dispositivo declarado:</b> {WebUtility.HtmlEncode(device)}<br><b>IP de conexión:</b> {WebUtility.HtmlEncode(ip)}<br><b>Navegador declarado:</b> {WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(agent) ? "No disponible" : agent)}</p><p>El código es compartido. Estos datos no identifican con certeza a una persona ni el número o modelo del teléfono.</p>", ip, now);
     }
     private void Queue(string kind, string name, string subject, string content, string ip, DateTimeOffset now, string? eventId = null)

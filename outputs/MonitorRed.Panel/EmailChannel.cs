@@ -6,7 +6,8 @@ using System.Text.Json.Nodes;
 using Microsoft.Identity.Client;
 
 public sealed record EmailSettings(string Provider, string AuthMode, string ClientId, string SenderAddress,
-    string TestRecipient, string TestRequestId, bool AutomaticAlertsEnabled, string[]? Recipients = null);
+    string TestRecipient, string TestRequestId, bool AutomaticAlertsEnabled, string[]? Recipients = null,
+    string? TenantId = null);
 public sealed record EmailAuthorization(string State, string? UserCode = null, string? VerificationUrl = null,
     DateTimeOffset? ExpiresAtUtc = null, string? Error = null);
 public sealed record EmailReceipt(string RequestId, string Recipient, string Subject, string State,
@@ -38,9 +39,12 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
         settingsPath = Path.Combine(dataDir, "email-settings.json");
         settings = JsonSerializer.Deserialize<EmailSettings>(File.ReadAllText(settingsPath), json)
             ?? throw new InvalidDataException("Configuración de correo vacía.");
-        if (settings.Provider != "microsoft-graph" || settings.AuthMode != "personal-device-code" ||
+        if (settings.Provider != "microsoft-graph" || settings.AuthMode is not ("personal-device-code" or "organizational-device-code") ||
             !Guid.TryParse(settings.ClientId, out _))
-            throw new InvalidDataException("Esta versión admite Microsoft Graph con cuenta personal.");
+            throw new InvalidDataException("Configura Microsoft Graph con acceso personal o institucional y un Id. de cliente válido.");
+        var tenant = settings.AuthMode == "personal-device-code" ? "consumers" : settings.TenantId ?? "organizations";
+        if (settings.AuthMode == "organizational-device-code" && tenant != "organizations" && !Guid.TryParse(tenant, out _))
+            throw new InvalidDataException("El identificador de la organización debe ser un GUID o organizations.");
         _ = new System.Net.Mail.MailAddress(settings.SenderAddress);
         _ = new System.Net.Mail.MailAddress(settings.TestRecipient);
         foreach (var recipient in settings.Recipients ?? [settings.TestRecipient]) _ = new System.Net.Mail.MailAddress(recipient);
@@ -49,7 +53,7 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
         receiptPath = Path.Combine(dataDir, "email-test-receipt.json");
         stopping = lifetime.ApplicationStopping;
         identity = PublicClientApplicationBuilder.Create(settings.ClientId)
-            .WithAuthority("https://login.microsoftonline.com/consumers")
+            .WithAuthority($"https://login.microsoftonline.com/{tenant}")
             .Build();
         identity.UserTokenCache.SetBeforeAccess(args =>
         {
@@ -181,7 +185,7 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
             {
                 message = new
                 {
-                    subject = notification.Subject,
+                    subject = AlertMessage.Subject(notification.Subject),
                     body = new { contentType = "HTML", content = notification.Message },
                     from = new { emailAddress = new { address = settings.SenderAddress } },
                     toRecipients = recipients.Select(address => new { emailAddress = new { address } }).ToArray()
@@ -299,7 +303,7 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
                 throw new InvalidOperationException("Microsoft requiere volver a autorizar el buzón.");
             }
             if (!IsExpectedAccount(token.Account)) throw new InvalidOperationException("El buzón autorizado no coincide.");
-            var subject = "Vision | Prueba de correo | Apodaca";
+            var subject = AlertMessage.Subject("Prueba de correo");
             var receipt = new EmailReceipt(settings.TestRequestId, settings.TestRecipient, subject, "sending", DateTimeOffset.UtcNow);
             SaveReceipt(receipt);
             using var request = new HttpRequestMessage(HttpMethod.Post, "https://graph.microsoft.com/v1.0/me/sendMail");
@@ -314,7 +318,7 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
                         $"Este es un correo de prueba de Vision Apodaca.\n\nRemitente: {settings.SenderAddress}\n" +
                         $"Fecha: {AlertMessage.FormatTime(DateTimeOffset.UtcNow)}\nReferencia: {settings.TestRequestId}\n\n" +
                         "Esta prueba verifica la conexión de Vision con el correo. No representa una caída de equipos.\n" +
-                        "Las alertas automáticas siguen desactivadas.\n\nVision | Monitoreo de red" },
+                        "Esta prueba no modifica la configuración de alertas automáticas.\n\nVision | Monitoreo de red" },
                     from = new { emailAddress = new { address = settings.SenderAddress } },
                     toRecipients = new[] { new { emailAddress = new { address = settings.TestRecipient } } }
                 },
