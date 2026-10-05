@@ -7,12 +7,14 @@ public sealed class MobileAccess
 {
     private readonly string[] accessCodes;
     private readonly EventRepository? events;
+    private readonly OwnerNotifications? owner;
     private readonly ConcurrentDictionary<string, DateTimeOffset> sessions = new();
     private readonly ConcurrentDictionary<string, (int Count, DateTimeOffset Until)> attempts = new();
-    public MobileAccess(string dataDir, EventRepository? events = null)
+    public MobileAccess(string dataDir, EventRepository? events = null, OwnerNotifications? owner = null)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
         this.events=events;
+        this.owner=owner;
         var path = Path.Combine(dataDir, "mobile-access-codes.dpapi");
         if (File.Exists(path))
             accessCodes = JsonSerializer.Deserialize<string[]>(ProtectedData.Unprotect(File.ReadAllBytes(path), null, DataProtectionScope.CurrentUser))
@@ -52,6 +54,7 @@ public sealed class MobileAccess
     }
     public IResult Login(HttpContext context, MobileLogin input)
     {
+        if (IsAuthenticated(context)) return Results.Ok(new { connected = true });
         var now = DateTimeOffset.UtcNow;
         foreach (var session in sessions.Where(s => s.Value < now)) sessions.TryRemove(session.Key, out _);
         foreach (var attempt in attempts.Where(s => s.Value.Until < now)) attempts.TryRemove(attempt.Key, out _);
@@ -71,6 +74,7 @@ public sealed class MobileAccess
         }
         attempts.TryRemove(remote, out _);
         if (sessions.Count > 1000) return Results.Json(new { error = "Límite de sesiones alcanzado." }, statusCode: 429);
+        owner?.MobileLogin(remote, context.Request.Headers.UserAgent.ToString(), now);
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         sessions[token] = now.AddHours(24);
         context.Response.Cookies.Append("VisionMobile", token, new CookieOptions
@@ -78,7 +82,7 @@ public sealed class MobileAccess
             HttpOnly = true, SameSite = SameSiteMode.Strict, Secure = context.Request.IsHttps,
             MaxAge = TimeSpan.FromHours(24), Path = "/", IsEssential = true
         });
-        events?.Add(Guid.NewGuid().ToString(),now,"access","info","login_success",remote,"Consulta móvil",to:"connected",description:"Inicio de sesión con código compartido. No identifica a una persona y no genera correo de acceso.");
+        events?.Add(Guid.NewGuid().ToString(),now,"access","info","login_success",remote,"Consulta móvil",to:"connected",description:"Inicio de sesión con código compartido. No identifica a una persona. " + (owner?.Enabled == true ? "Aviso al autor registrado en la cola." : "Avisos al autor desactivados."));
         return Results.Ok(new { connected = true });
     }
     public IResult Logout(HttpContext context)

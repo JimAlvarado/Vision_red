@@ -18,9 +18,10 @@ if (!File.Exists(monitorSettingsPath))
     File.WriteAllText(monitorSettingsPath, "{\"incidentDetectionEnabled\":false}");
 builder.Services.AddSingleton<MonitorState>();
 builder.Services.AddSingleton(new EventRepository(monitorDataDir));
-builder.Services.AddSingleton(provider => new MobileAccess(monitorDataDir,provider.GetRequiredService<EventRepository>()));
+builder.Services.AddSingleton(provider => new MobileAccess(monitorDataDir,provider.GetRequiredService<EventRepository>(),provider.GetRequiredService<OwnerNotifications>()));
+builder.Services.AddSingleton(provider => new OwnerNotifications(monitorDataDir, provider.GetRequiredService<NotificationOutbox>()));
 builder.Services.AddSingleton(provider => new EmailChannel(monitorDataDir,
-    provider.GetRequiredService<IHostApplicationLifetime>()));
+    provider.GetRequiredService<IHostApplicationLifetime>(), provider.GetRequiredService<OwnerNotifications>()));
 builder.Services.AddSingleton<IAlertTransport>(provider => provider.GetRequiredService<EmailChannel>());
 builder.Services.AddHostedService<EmailDeliveryWorker>();
 builder.Services.AddSingleton(provider => new IncidentRepository(Path.Combine(monitorDataDir, "incidentes.json"),provider.GetRequiredService<EventRepository>()));

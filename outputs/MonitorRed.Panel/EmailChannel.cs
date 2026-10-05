@@ -17,6 +17,7 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
     private static readonly string[] Scopes = ["https://graph.microsoft.com/Mail.Send"];
     private volatile EmailSettings settings;
     private readonly string settingsPath;
+    private readonly OwnerNotifications? owner;
     private readonly IPublicClientApplication identity;
     private readonly HttpClient http;
     private readonly string cachePath;
@@ -30,9 +31,10 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
     private Task? authorizationTask;
     private bool forceRefresh;
 
-    public EmailChannel(string dataDir, IHostApplicationLifetime lifetime)
+    public EmailChannel(string dataDir, IHostApplicationLifetime lifetime, OwnerNotifications? owner = null)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("El correo de Vision requiere Windows.");
+        this.owner = owner;
         settingsPath = Path.Combine(dataDir, "email-settings.json");
         settings = JsonSerializer.Deserialize<EmailSettings>(File.ReadAllText(settingsPath), json)
             ?? throw new InvalidDataException("Configuración de correo vacía.");
@@ -73,10 +75,14 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
             }
         });
         http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(35) };
+        FlushOwnerChanges(JsonNode.Parse(File.ReadAllText(settingsPath))!.AsObject());
     }
 
     public bool AutomaticAlertsEnabled => settings.AutomaticAlertsEnabled;
-    public string[] Recipients => (settings.Recipients ?? [settings.TestRecipient]).ToArray();
+    public bool OwnerNotificationsEnabled => owner?.Enabled == true;
+    public string[] Recipients => (settings.Recipients ?? [settings.TestRecipient])
+        .Concat(OwnerNotificationsEnabled ? [owner!.Address!] : Array.Empty<string>())
+        .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
     public async Task<string[]> UpdateRecipientsAsync(string[]? addresses, CancellationToken cancellation)
     {
@@ -92,17 +98,40 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
                 throw new ArgumentException("Hay una dirección de correo inválida. Revisa la lista.");
             if (!recipients.Contains(address, StringComparer.OrdinalIgnoreCase)) recipients.Add(address);
         }
+        if (OwnerNotificationsEnabled && !recipients.Contains(owner!.Address!, StringComparer.OrdinalIgnoreCase)) recipients.Add(owner.Address!);
+        if (recipients.Count > 50) throw new ArgumentException("Reserva un lugar para el correo del autor; el máximo es 50 destinatarios.");
         await sendGate.WaitAsync(cancellation);
         try
         {
             var document = JsonNode.Parse(File.ReadAllText(settingsPath)) as JsonObject
                 ?? throw new InvalidDataException("Configuración de correo inválida.");
             document["recipients"] = JsonSerializer.SerializeToNode(recipients.ToArray());
+            var added = recipients.Except(Recipients, StringComparer.OrdinalIgnoreCase).ToArray();
+            if (OwnerNotificationsEnabled && added.Length > 0)
+            {
+                var pending = document["ownerNotificationPending"] as JsonArray;
+                if (pending is null) { pending = new JsonArray(); document["ownerNotificationPending"] = pending; }
+                pending.Add(JsonSerializer.SerializeToNode(new { id = Guid.NewGuid().ToString("N"), addresses = added, occurredAtUtc = DateTimeOffset.UtcNow }));
+            }
             SaveBytes(settingsPath, JsonSerializer.SerializeToUtf8Bytes(document, json));
             settings = settings with { Recipients = recipients.ToArray() };
+            FlushOwnerChanges(document);
             return Recipients;
         }
         finally { sendGate.Release(); }
+    }
+
+    private void FlushOwnerChanges(JsonObject document)
+    {
+        if (!OwnerNotificationsEnabled || document["ownerNotificationPending"] is not JsonArray pending || pending.Count == 0) return;
+        foreach (var item in pending)
+        {
+            var change = item!.AsObject();
+            owner!.RecipientsAdded(change["addresses"]!.Deserialize<string[]>()!,
+                change["occurredAtUtc"]!.Deserialize<DateTimeOffset>(), change["id"]!.GetValue<string>());
+        }
+        document.Remove("ownerNotificationPending");
+        SaveBytes(settingsPath, JsonSerializer.SerializeToUtf8Bytes(document, json));
     }
 
     public async Task<bool> CheckConnectionAsync()
@@ -133,10 +162,14 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
 
     public async Task<EmailDelivery> SendAlertAsync(PendingNotification notification, CancellationToken cancellation)
     {
-        if (!AutomaticAlertsEnabled) return new("retry", "Correo automático desactivado.", RetryAfterSeconds: 60);
+        if (!(notification.OwnerOnly ? OwnerNotificationsEnabled : AutomaticAlertsEnabled))
+            return new("retry", "Este canal de avisos está desactivado.", RetryAfterSeconds: 60);
         await sendGate.WaitAsync(cancellation);
         try
         {
+            var recipients = notification.OwnerOnly ? notification.TargetRecipients ?? [] : Recipients;
+            if (recipients.Length == 0 || notification.OwnerOnly && recipients.Length != 1)
+                return new("failed", "Falta el destinatario exclusivo del aviso al autor.");
             AuthenticationResult token;
             try { token = await AcquireTokenAsync(cancellation); }
             catch (Exception ex) when (ex is MsalException or InvalidOperationException or HttpRequestException or CryptographicException)
@@ -151,7 +184,7 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
                     subject = notification.Subject,
                     body = new { contentType = "HTML", content = notification.Message },
                     from = new { emailAddress = new { address = settings.SenderAddress } },
-                    toRecipients = Recipients.Select(address => new { emailAddress = new { address } }).ToArray()
+                    toRecipients = recipients.Select(address => new { emailAddress = new { address } }).ToArray()
                 },
                 saveToSentItems = true
             });
@@ -192,7 +225,8 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
         }
         catch (CryptographicException) { auth = new("error", Error: "La sesión guardada pertenece a otro usuario de Windows o no se puede abrir. Vuelve a autorizar."); }
         return new { settings.Provider, settings.AuthMode, settings.SenderAddress, settings.TestRecipient,
-            settings.AutomaticAlertsEnabled, recipients = Recipients, authorization = auth, test = ReadReceipt() };
+            settings.AutomaticAlertsEnabled, recipients = Recipients, ownerNotificationsEnabled = OwnerNotificationsEnabled,
+            ownerNotificationAddress = owner?.Address, authorization = auth, test = ReadReceipt() };
     }
 
     public async Task<EmailAuthorization> StartAuthorizationAsync()

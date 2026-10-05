@@ -3,7 +3,10 @@ using System.Text.Json;
 public sealed record PendingNotification(string Id, string IncidentId, string Ip, string Name,
     string Kind, string Channel, DateTimeOffset CreatedAtUtc, string Status, string Subject, string Message,
     int Attempts = 0, DateTimeOffset? NextAttemptAtUtc = null, DateTimeOffset? AcceptedAtUtc = null,
-    string? LastError = null, string? ProviderRequestId = null);
+    string? LastError = null, string? ProviderRequestId = null, string[]? TargetRecipients = null)
+{
+    public bool OwnerOnly => Kind is "recipient_added" or "mobile_login";
+}
 
 public sealed class NotificationOutbox
 {
@@ -47,16 +50,30 @@ public sealed class NotificationOutbox
         }
     }
 
-    public PendingNotification? Claim(DateTimeOffset now)
+    public void EnqueueOwner(string eventId, string kind, string ip, string name, DateTimeOffset now,
+        string subject, string message, string ownerAddress)
+    {
+        if (kind is not ("recipient_added" or "mobile_login")) throw new ArgumentException("Tipo de aviso inválido.");
+        lock (gate)
+        {
+            if (items.Any(i => i.Id == eventId)) return;
+            items.Add(new(eventId, eventId, ip, name, kind, "email", now, "awaiting-configuration", subject, message,
+                TargetRecipients: [ownerAddress]));
+            Save();
+        }
+    }
+
+    public PendingNotification? Claim(DateTimeOffset now, bool automaticEnabled = true, bool ownerEnabled = true)
     {
         lock (gate)
         {
             // Events older than 30 minutes need review, rather than late operational alerts.
             var changed = false;
             for (var i = 0; i < items.Count; i++)
-                if (items[i].Status is "awaiting-configuration" or "retry" && now - items[i].CreatedAtUtc > TimeSpan.FromMinutes(30))
-                { items[i] = items[i] with { Status = "expired", LastError = "Aviso con más de 30 minutos de antigüedad; consultar el incidente." }; changed = true; }
+                if (items[i].Status is "awaiting-configuration" or "retry" && now - items[i].CreatedAtUtc > (items[i].OwnerOnly ? TimeSpan.FromHours(24) : TimeSpan.FromMinutes(30)))
+                { items[i] = items[i] with { Status = "expired", LastError = "Aviso antiguo sin enviar; consultar el historial." }; changed = true; }
             var next = items.Where(i => i.Status is "awaiting-configuration" or "retry" &&
+                (i.OwnerOnly ? ownerEnabled : automaticEnabled) &&
                 (i.NextAttemptAtUtc is null || i.NextAttemptAtUtc <= now)).OrderBy(i => i.CreatedAtUtc).FirstOrDefault();
             if (next is not null)
             {

@@ -2,6 +2,7 @@ public sealed record EmailDelivery(string State, string? Error = null, string? P
 public interface IAlertTransport
 {
     bool AutomaticAlertsEnabled { get; }
+    bool OwnerNotificationsEnabled => false;
     Task<EmailDelivery> SendAlertAsync(PendingNotification notification, CancellationToken token);
 }
 public sealed class EmailDeliveryWorker(NotificationOutbox outbox, IAlertTransport transport,
@@ -13,9 +14,9 @@ public sealed class EmailDeliveryWorker(NotificationOutbox outbox, IAlertTranspo
         {
             try
             {
-                if (transport.AutomaticAlertsEnabled)
+                if (transport.AutomaticAlertsEnabled || transport.OwnerNotificationsEnabled)
                 {
-                    var item = outbox.Claim(DateTimeOffset.UtcNow);
+                    var item = outbox.Claim(DateTimeOffset.UtcNow, transport.AutomaticAlertsEnabled, transport.OwnerNotificationsEnabled);
                     if (item is not null)
                     {
                         EmailDelivery result;

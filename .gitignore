@@ -19,6 +19,12 @@
 /work/tooling/*
 !/work/tooling/Publicar-Vision.ps1
 !/work/tooling/activar-desarrollo.ps1
+!/work/tooling/Configurar-Avisos-Autor.ps1
+!/work/tooling/Probar-Avisos-Autor.ps1
+!/work/tooling/test-owner/
+/work/tooling/test-owner/*
+!/work/tooling/test-owner/TestOwner.csproj
+!/work/tooling/test-owner/Program.cs
 
 # Estado privado y operativo: nunca se sube ni se reemplaza con pull.
 outputs/MonitorRed.Panel/datos/

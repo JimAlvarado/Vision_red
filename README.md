@@ -34,3 +34,11 @@ El código fuente conserva las rutas establecidas para Vision; no se crea una se
 Revisar los cambios y avisar al usuario antes de cada push. Versionar código y publicación compilada juntos. El servidor no compila: detener el servicio, comprobar que esté detenido, realizar `git pull --ff-only`, iniciarlo y comprobar estado, mapa, acceso móvil y correo. Si el pull falla, resolverlo antes de considerar aplicada la actualización.
 
 Los archivos comprimidos `.gz` y `.br` se regeneran durante la publicación; no deben conservar contenido de una versión anterior. El script no inicia el monitor de G15, no controla servicios y no hace commit ni push.
+
+## Avisos privados al autor
+
+Tras detener el servicio y actualizar el servidor, ejecutar `work/tooling/Configurar-Avisos-Autor.ps1 -CorreoAutor <correo indicado por el autor>` antes de iniciar Vision. La configuración se guarda en `datos/owner-notifications.json`, fuera de Git, con respaldo previo. También se incluye el autor en los destinatarios de las alertas de red y se conserva su dirección al editar la lista.
+
+Los avisos de nuevos destinatarios e inicios de sesión válidos en la consulta van exclusivamente al autor, con cola persistente. Su canal es independiente del ajuste de alertas de red, pero usa la misma autorización del buzón. Una sesión ya activa y las consultas periódicas no generan avisos nuevos. La IP y el navegador declarados no identifican con certeza a una persona ni el teléfono. No se envían códigos ni cookies. Guardar la misma lista o retirar un destinatario no genera un aviso de incorporación.
+
+En G15, `Probar-Avisos-Autor.ps1 -TestRoot <carpeta de prueba>` requiere PowerShell 7 y una copia sin autorización de correo ni alertas de red; usa correos ficticios y restaura sus ajustes. El proyecto `work/tooling/test-owner/TestOwner.csproj` verifica el canal con un transporte simulado.

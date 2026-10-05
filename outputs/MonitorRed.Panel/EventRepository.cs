@@ -68,7 +68,7 @@ public sealed class EventRepository
     {
         var time=item.AcceptedAtUtc ?? (item.Attempts==0?item.CreatedAtUtc:DateTimeOffset.UtcNow);
         Add($"email:{item.Id}:{item.Attempts}:{item.Status}",time,"email",item.Status=="accepted"?"success":item.Status is "failed" or "unknown" or "expired"?"warning":"info","email_"+item.Status,item.Ip,item.Name,"",item.Status,item.IncidentId,
-            $"Aviso de {(item.Kind=="down"?"pérdida":"recuperación")}. Intento {item.Attempts}. {item.LastError ?? (item.Status=="accepted"?"Microsoft aceptó el envío; no equivale a confirmación de entrega.":"Estado de la cola de correo.")}");
+            $"Aviso de {(item.Kind switch { "down" => "pérdida", "recovery" => "recuperación", "mobile_login" => "acceso a la consulta", "recipient_added" => "nuevo destinatario", _ => "correo" })}. Intento {item.Attempts}. {item.LastError ?? (item.Status=="accepted"?"Microsoft aceptó el envío; no equivale a confirmación de entrega.":"Estado de la cola de correo.")}");
     }
     public static string CsvRow(IEnumerable<string?> values) => string.Join(",",values.Select(v=>"\""+(v??"").Replace("\"","\"\"")+"\""))+"\r\n";
     public void Table(string name, IEnumerable<IEnumerable<string?>> rows)

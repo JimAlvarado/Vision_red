@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 let busy = false;
-let draftRecipients = [], savedRecipients = [], recipientsLoaded = false, savingRecipients = false, recipientGeneration = 0;
+let draftRecipients = [], savedRecipients = [], recipientsLoaded = false, savingRecipients = false, recipientGeneration = 0, ownerNotificationAddress = null;
 const recipientsDirty = () => JSON.stringify(draftRecipients) !== JSON.stringify(savedRecipients);
 function renderRecipients() {
   const list = $('recipientList'); list.replaceChildren();
@@ -9,6 +9,10 @@ function renderRecipients() {
     const row = document.createElement('li'), text = document.createElement('span'), remove = document.createElement('button');
     text.textContent = address; remove.type = 'button'; remove.className = 'remove-recipient'; remove.textContent = 'Quitar';
     remove.setAttribute('aria-label', 'Quitar ' + address); remove.disabled = savingRecipients;
+    if (ownerNotificationAddress && ownerNotificationAddress.toLowerCase() === address.toLowerCase()) {
+      remove.textContent = 'Autor'; remove.disabled = true; remove.setAttribute('aria-label', 'Correo del autor');
+      remove.title = 'El autor recibe las alertas de red y los avisos de administración.';
+    }
     remove.addEventListener('click', () => { draftRecipients.splice(index, 1); $('recipientError').textContent = ''; renderRecipients(); });
     row.append(text, remove); list.append(row);
   }
@@ -30,9 +34,11 @@ async function refresh() {
   try {
     const data = await api('/api/email/status');
     const auth = data.authorization;
+    ownerNotificationAddress = data.ownerNotificationsEnabled ? data.ownerNotificationAddress : null;
     $('sender').textContent = $('expected').textContent = data.senderAddress;
     $('recipient').textContent = data.testRecipient;
     $('automaticState').textContent = data.automaticAlertsEnabled ? 'Envío automático habilitado.' : 'Envío automático desactivado.';
+    $('ownerState').textContent = data.ownerNotificationsEnabled ? 'Avisos al autor habilitados: ' + data.ownerNotificationAddress + '. Nuevos destinatarios e inicios de sesión en la consulta.' : 'Avisos al autor pendientes de configurar en el servidor.';
     if (generation === recipientGeneration && !savingRecipients && !recipientsDirty()) {
       if (!recipientsLoaded || JSON.stringify(savedRecipients) !== JSON.stringify(data.recipients)) {
         draftRecipients = [...data.recipients]; savedRecipients = [...data.recipients]; recipientsLoaded = true; renderRecipients();
