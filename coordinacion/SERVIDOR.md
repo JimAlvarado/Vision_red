@@ -1,47 +1,59 @@
 # Estado de Windows Server — Claude
 
-Actualizado por Claude: 5 de octubre de 2026, 16:15 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
+Actualizado por Claude: 5 de octubre de 2026, 17:45 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
 
 ## Situación actual
 
 - Ruta: `C:\Proyectos\Vision_red`; servicio: `Vision` (automático, cuenta de dominio del usuario), `Running`.
-- Commit de aplicación ejecutado: `fc9c0c7`. HEAD local: `ee87f64` (solo coordinación sobre `72fc5af`), sin cambios locales.
-- Correo: **migrado al buzón institucional** (`organizational-device-code`, tenant `organizations`, mismo ClientId). Autorizado desde la cuenta de Windows del servicio; la identidad corresponde al buzón pedido por el usuario. Prueba aceptada por Microsoft y **recepción confirmada por el usuario**.
-- Alertas de red automáticas: **encendidas desde 16:05 por decisión del usuario**, antes de la protección de volumen (ver Intervención 4). Avisos al autor: **configurados pero apagados**. 3 destinatarios; el autor solicitado está entre ellos.
-- Monitoreo: `operating`. Hubo pérdida de alcance a la red monitoreada entre 15:51 y 15:56 (ver Intervención 4); no fue un fallo de Vision.
+- Aplicación ejecutada: **compilada en el servidor por Claude** (Intervención 5), sobre `ee87f64`. El commit que la contiene es el que acompaña a este registro.
+- Correo: buzón institucional (`organizational-device-code`) autorizado. Alertas de red automáticas **encendidas** (decisión del usuario). Avisos al autor configurados y **apagados**. 2 destinatarios (el usuario editó la lista a las 16:06).
+- Monitoreo `operating`, 19 equipos (el usuario agregó y retiró un equipo entre 17:27 y 17:28; revisión 176).
 
-## Intervención 4 — 5 de octubre de 2026, 15:38–16:00: migración al correo institucional
+## Intervención 5 — 5 de octubre de 2026, 16:45–17:45: correcciones hechas en el servidor (excepción autorizada)
 
-- Datos usados (indicados por el usuario en el chat del servidor, fuera de Git): remitente institucional y correo del autor.
-- Antes: cola `accepted=33, expired=146, failed=29`; mapa 19 equipos/18 enlaces/revisión 172.
-- Detener (UAC) y confirmar proceso cerrado → respaldo de `datos` (zip local fuera de Git) → `Configurar-Avisos-Autor.ps1` → `Configurar-Correo-Institucional.ps1`, sin iniciar entre ambos → iniciar (UAC) y confirmar `Running`. Ambos scripts idénticos a `fc9c0c7`.
-- **Problema en los scripts (para Codex):** están en UTF-8 **sin BOM**. Windows PowerShell 5.1 los lee como ANSI; la flecha `→` del mensaje final se convierte en una comilla tipográfica y el script falla al analizarse (`TerminatorExpectedAtEndOfString`, línea 27 de `Configurar-Avisos-Autor.ps1`). No se modificó nada: el análisis falla antes de ejecutar. Se ejecutaron copias byte a byte idénticas guardadas con BOM, con `-PanelPath` explícito. Corrección: guardar los `.ps1` en UTF-8 con BOM o dejarlos solo en ASCII. Afecta a todos los `.ps1` de `work/tooling` con caracteres no ASCII.
-- Resultado de los scripts: modo institucional, ClientId sin cambios, sesión y recibo anteriores retirados y respaldados en `datos`, destinatarios conservados (3, autor incluido), ambos canales apagados. Resto de `datos` (mapa, cola, historial) con el mismo SHA-256.
-- Autorización: el usuario inició sesión por código de dispositivo con el buzón institucional; Vision muestra `connected` (solo lo hace si la cuenta coincide con el remitente) y generó la sesión DPAPI con la cuenta del servicio.
-- **Una sola prueba** (15:50:14): Microsoft la aceptó (`accepted`, con request-id). Asunto registrado: `[VISION-APODACA] Prueba de correo`. El usuario confirmó la recepción con remitente institucional y la misma referencia. No se repitió.
-- Después: cola `accepted=33, expired=146, failed=29, awaiting-configuration=1`. No se reenvió nada. El nuevo aviso en espera es la pérdida de acceso de las 15:51; no sale porque los canales están apagados y caducará a los 30 min.
-- **Pérdida de acceso a la red desde 15:51:** los 19 equipos responden `TimedOut` y se abrió el incidente `network_down`. Comprobado fuera de Vision: el servidor tampoco recibe respuesta a ping de los equipos; la traza llega al segundo salto (red interna) y se corta después; el gateway del servidor responde. Es un problema de ruta, enlace o firewall entre el servidor y la red de equipos (ya ocurrió varias veces por la mañana). Lo debe revisar el área de redes.
-- Diario JSONL: 2 errores desde 15:22 (15:24:15 y 15:41:16, uno por arranque). Sigue abierto.
-- **16:02–16:08, activación de alertas de red (decisión explícita del usuario).** El usuario hizo una prueba de caída y el aviso quedó `awaiting-configuration` por tener los canales apagados. Se le explicó el riesgo (sin agrupación, un correo por equipo y por cambio) y pidió activarlas. No hay interruptor en el panel: detener (UAC) → respaldo de `email-settings.json` en `datos` → `automaticAlertsEnabled=true` (resto de campos sin cambios) → iniciar (UAC). Avisos al autor siguen `enabled=false`.
-- Al arrancar se enviaron los 6 avisos en espera (todos con menos de 30 min): 4 del acceso a la red (15:51–15:56) y la caída y recuperación de prueba (16:00 y 16:04). Microsoft aceptó los 6 entre 16:05:43 y 16:06:19, al primer intento. El usuario confirmó la recepción. La sesión institucional siguió válida después del reinicio.
-- Para Codex: en `correo.js` el texto "Avisos al autor pendientes de configurar en el servidor" aparece también cuando el autor está configurado pero `enabled=false`; conviene distinguir "configurado y apagado" de "sin configurar". Tampoco existe un interruptor en el panel para las alertas de red.
+**Excepción a la regla "el servidor no modifica código", autorizada por el usuario solo para este caso:** Claude corrigió en el servidor los puntos que había reportado a Codex. **Codex: hacer `git pull` antes de continuar** y no repetir estas correcciones; revisar el diff y ajustar lo que convenga desde G15.
+
+### Entorno de compilación
+
+- SDK .NET **10.0.401** (runtime 10.0.12, el mismo de la publicación de Codex) instalado sin administrador en `work/tooling/dotnet` (fuera de Git). Compilación sin cambios previa: 420 de 424 archivos idénticos byte a byte a la publicación de Codex; solo difieren dll/exe/pdb/endpoints.
+- Publicación con los cambios: 14 archivos distintos (dll, exe, pdb, endpoints y `.gz`/`.br` de `correo.*` y `mobile.*`); 410 idénticos; sin archivos privados. Respaldo de los 14 anteriores en `work/tooling/rollback-*` (local, fuera de Git).
+
+### Cambios
+
+1. **Diario JSONL** (`JournalFile.cs` nuevo, `EventJournalWorker.cs`, `MonitoringWorker.cs`): lectura y escritura con `FileShare.ReadWrite | FileShare.Delete`; la escritura reintenta hasta 5 veces y, si falla, registra advertencia **sin abortar la ronda** (el cambio se escribe en la siguiente ronda).
+2. **Agrupación** (`NotificationOutbox.ClaimBatch`, `EmailDeliveryWorker`, `AlertMessage.ComposeDigest`): las alertas de red esperan 20 s (5 s sin cambios nuevos, máximo 60 s) y salen en **un solo correo "Resumen de red"** con tabla por equipo, duración de recuperaciones y equipos que siguen sin respuesta. Un único cambio de un equipo estable conserva el mensaje individual anterior.
+3. **Intermitencias**: un equipo con 2 o más pérdidas en 30 min es intermitente; sus cambios se retienen hasta 10 min sin cambios (o 30 min desde el primero retenido) y salen resumidos ("Intermitente: N pérdidas y M recuperaciones, último estado"). La primera caída y su recuperación salen normalmente.
+4. **429 de Microsoft**: pausa **general** de todos los envíos (`correo-limite.json` en `datos`, sobrevive reinicios), 60 s → 2 → 4 … hasta 60 min, respetando `Retry-After`. Los intentos limitados **no cuentan** para los 5 intentos; esos avisos caducan a las 3 h (los normales siguen a 30 min). Al aceptarse un envío la pausa termina. Evento `email_limited` / `email_limit_cleared` en el historial.
+5. **Prioridad y avisos de acceso**: la red sale antes que los avisos al autor. Acceso móvil: un aviso por IP y tipo de dispositivo cada 24 h, máximo 10 por día; el evento `login_success` indica si se omitió.
+6. **Visibilidad**: `correo.html` muestra la pausa por límite y tiene **interruptor** de envío automático (`PUT /api/email/automatic {enabled}`, solo editor local, registra evento). La consulta móvil muestra "Microsoft limitó el envío · se reintenta a las …" (`limitedUntilUtc` en `/api/mobile/overview` y `/api/email/status`).
+7. **Menores**: límite de 16 KB aplicado en el middleware antes de leer el cuerpo de `/api/email/*` (también chunked); destinatarios exigen dominio con punto (servidor y navegador); `owner-notifications.json` dañado ya no detiene el correo (avisos al autor apagados + `ownerConfigurationError`); texto "Avisos al autor configurados y desactivados" separado de "sin configurar".
+8. **Scripts `.ps1`**: `Configurar-Avisos-Autor`, `Configurar-Correo-Institucional`, `Probar-Avisos-Autor` y `Probar-Correo-Institucional` guardados en UTF-8 **con BOM** (contenido igual). Comprobado: los dos primeros fallaban al analizarse en Windows PowerShell 5.1 y ahora no.
+
+### Pruebas
+
+- `work/tooling/test-volumen` (nuevo, versionado): 31 comprobaciones con transporte ficticio, sin correo real: concurrencia del diario (3000 escrituras con lector simultáneo, y reproduce el conflicto anterior), agrupación, pausa por 429 (persistencia, crecimiento, no consume intentos, no caduca a 30 min), caducidades, prioridad, intermitentes, HTML codificado, worker con un solo envío, límites de acceso móvil, autor dañado, dominio sin punto e interruptor. **Todas pasan.**
+- `work/tooling/test-owner` de Codex: **pasa** sin cambios.
+- En el servicio: panel, mapa y móvil 200; `PUT /api/email/automatic` sin valor → 400, sin cabecera de editor → 403, por móvil → 403; `PUT` de destinatarios de 20 KB → 413; dominio sin punto → 400. Ninguna prueba modificó la configuración. **Sin errores del diario JSONL al arrancar** (antes aparecía en cada arranque).
+- Instalación: detener (UAC) → respaldo de `datos` → copia de los 14 archivos verificados por hash → iniciar (UAC). `datos` intacto (mismo SHA-256).
+
+### No probado
+
+- Un 429 real de Microsoft y un resumen real con varios equipos (requieren una caída real o forzarla). El próximo cambio múltiple de red generará el primer resumen real.
+
+## Intervención 4 — 5 de octubre de 2026, 15:38–16:08: migración al correo institucional
+
+- Scripts de Codex ejecutados como copias con BOM (corregido en Intervención 5); buzón institucional autorizado desde la cuenta del servicio; una sola prueba aceptada y recibida. Canales apagados por el script.
+- 16:05: el usuario pidió encender las alertas de red; se enviaron los 6 avisos en espera (aceptados al primer intento, recibidos).
+- 15:51–15:56: pérdida de alcance a la red de equipos desde el servidor (ping y traza fallan fuera del servidor); problema de red, no de Vision.
 
 ## Intervención 3 — 5 de octubre de 2026, 15:22–15:30: actualización a `72fc5af`
 
-- Revisión de `fc9c0c7`: modo personal compatible, prefijo `[VISION-APODACA]` correcto, `.gz`/`.br` coinciden. Sin observaciones bloqueantes.
-- Detener (UAC) → respaldo → `git pull --ff-only` → iniciar (UAC). `.exe`/`.dll` idénticos a HEAD; `datos` con el mismo SHA-256; mapa, móvil y bloqueo de `PUT` por móvil verificados.
+- Detener → respaldo → `git pull --ff-only` → iniciar. Binarios idénticos a HEAD, `datos` intacto.
 
-## Intervención 2 — 5 de octubre de 2026, 12:40–13:30: correos que no salen (buzón personal)
+## Pendientes
 
-- HTTP 429 desde 09:49 CDMX por **límite diario de Outlook.com** de la cuenta personal sin verificar (aviso "Verify your account…" del mismo minuto). Origen: 25 correos en 26 min, 10 en el mismo segundo, más avisos de un equipo intermitente.
-- Para Codex, antes de reactivar envíos: agrupar avisos por ronda; amortiguar intermitencias; espera creciente ante 429; mostrar el límite en el panel y el móvil; limitar los avisos de acceso móvil y dar prioridad a la red en la cola. El buzón institucional por sí solo no protege el volumen.
-- Revisión de `71153f5`: correcta; riesgo menor si `owner-notifications.json` queda mal formado (el canal de correo no arranca).
-
-## Pendientes para Codex (siguen abiertos)
-
-- **Conflicto de acceso a `eventos-monitor-*.jsonl`:** `EventJournalWorker.cs` lee con `File.ReadLines` (sin compartir escritura) mientras `MonitoringWorker.cs` añade con `File.AppendAllTextAsync`. Leer con `FileShare.ReadWrite | FileShare.Delete` y no abortar la ronda si falla el diario.
-- Codificación de los `.ps1` (Intervención 4).
-- Protección de volumen de correo (Intervención 2) antes de reactivar canales.
-- Menores de `29d20f0`: límite de 16 KB del `PUT` evaluado después de leer el cuerpo; validación acepta dominios sin punto.
+- Codex: revisar y, si corresponde, ajustar desde G15 las correcciones de la Intervención 5 (no rehacerlas). Usar `test-volumen` como regresión.
+- Redes: pérdidas intermitentes de alcance desde el servidor hacia la red de equipos.
+- Prueba de arranque tras reiniciar Windows Server; respaldo/restauración.
 
 Avisar al usuario antes de cada push. No registrar códigos, credenciales, cuentas, IPs ni contenido de datos privados.

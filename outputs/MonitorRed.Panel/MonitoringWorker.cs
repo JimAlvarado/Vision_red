@@ -131,8 +131,14 @@ public sealed class MonitoringWorker(string topologyPath, string dataDir, Monito
                 var eventData = new { timeUtc = now, ip = obs.Target.Ip, name = obs.Target.Name,
                     from = current.LastPublished, to = next, detail = obs.Detail };
                 var logPath = Path.Combine(dataDir, $"eventos-monitor-{now:yyyy-MM-dd}.jsonl");
-                await File.AppendAllTextAsync(logPath, JsonSerializer.Serialize(eventData) + Environment.NewLine, token);
-                current.LastPublished = next;
+                try
+                {
+                    await JournalFile.AppendAsync(logPath, JsonSerializer.Serialize(eventData) + Environment.NewLine, token);
+                    current.LastPublished = next;
+                }
+                // A journal failure must not abort the round; the change is written on the next round.
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { logger.LogWarning(ex, "No se pudo escribir el diario del monitor; se reintentará en la siguiente ronda."); }
             }
         }
         state.Publish(new(now, condition, readings.ToArray(), incidentDetectionEnabled));

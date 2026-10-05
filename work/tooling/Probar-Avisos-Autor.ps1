@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string]$TestRoot)
+﻿param([Parameter(Mandatory)][string]$TestRoot)
 $ErrorActionPreference = 'Stop'
 $testRootPath = [IO.Path]::GetFullPath($TestRoot)
 $panel = Join-Path $testRootPath 'outputs\MonitorRed.Panel'

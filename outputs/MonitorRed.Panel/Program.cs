@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Hosting.WindowsServices;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args=args,
@@ -89,6 +90,12 @@ app.Use(async (context, next) =>
         { context.Response.StatusCode = 403; return; }
         if (context.Request.Headers["X-Topology-Editor"] != "1")
         { context.Response.StatusCode = 403; return; }
+        // Small configuration bodies: limit before model binding reads them, including chunked requests.
+        if (context.Request.Path.StartsWithSegments("/api/email"))
+        {
+            if (context.Request.ContentLength > 16384) { context.Response.StatusCode = 413; return; }
+            if (context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } bodyLimit) bodyLimit.MaxRequestBodySize = 16384;
+        }
     }
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     await next();
@@ -151,7 +158,9 @@ app.MapPost("/api/mobile/logout", (HttpContext context, MobileAccess mobile) => 
 app.MapGet("/api/mobile/overview", (NotificationOutbox outbox, EmailChannel email) =>
 {
     var alerts = outbox.Snapshot();
+    var limit = outbox.Limit;
     return Results.Ok(new { automaticAlertsEnabled = email.AutomaticAlertsEnabled,
+        limitedUntilUtc = limit.PausedUntilUtc > DateTimeOffset.UtcNow ? limit.PausedUntilUtc : null,
         accepted = alerts.Count(i => i.Status == "accepted"), pending = alerts.Count(i => i.Status is "awaiting-configuration" or "retry" or "sending"),
         needsAttention = alerts.Count(i => i.Status is "failed" or "unknown" or "expired"),
         lastAcceptedAtUtc = alerts.Where(i => i.AcceptedAtUtc is not null).Select(i => i.AcceptedAtUtc).OrderDescending().FirstOrDefault() });
@@ -159,15 +168,25 @@ app.MapGet("/api/mobile/overview", (NotificationOutbox outbox, EmailChannel emai
 app.MapGet("/api/status", (MonitorState monitor) => Results.Ok(monitor.Snapshot));
 app.MapGet("/api/incidents", (IncidentRepository incidents) => Results.Ok(incidents.Snapshot()));
 app.MapGet("/api/notifications", (NotificationOutbox outbox) => Results.Ok(outbox.Snapshot()));
-app.MapGet("/api/email/status", async (EmailChannel email, HttpContext context) =>
+app.MapGet("/api/email/status", async (EmailChannel email, NotificationOutbox outbox, HttpContext context) =>
 {
     context.Response.Headers.CacheControl = "no-store";
-    return Results.Ok(await email.StatusAsync());
+    return Results.Ok(await email.StatusAsync(outbox.Limit));
+});
+app.MapPut("/api/email/automatic", async (EmailAutomaticRequest input, EmailChannel email, EventRepository events, HttpContext context) =>
+{
+    if (input.Enabled is not { } enabled) return Results.BadRequest(new { error = "Indica si el envío automático queda activado." });
+    try { await email.SetAutomaticAlertsAsync(enabled, context.RequestAborted); }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
+    { return Results.Json(new { error = "No se pudo guardar el ajuste. Revisa los permisos y vuelve a intentar." }, statusCode: 503); }
+    events.Add(Guid.NewGuid().ToString(), DateTimeOffset.UtcNow, "configuration", enabled ? "info" : "warning",
+        enabled ? "email_automatic_enabled" : "email_automatic_disabled",
+        description: enabled ? "Envío automático de alertas de red activado desde el editor local." : "Envío automático de alertas de red desactivado desde el editor local.");
+    return Results.Ok(new { automaticAlertsEnabled = enabled });
 });
 app.MapPost("/api/email/check", async (EmailChannel email) => Results.Ok(new { ready = await email.CheckConnectionAsync() }));
 app.MapPut("/api/email/recipients", async (EmailRecipientsRequest input, EmailChannel email, EventRepository events, HttpContext context) =>
 {
-    if (context.Request.ContentLength > 16384) return Results.BadRequest(new { error = "La lista es demasiado grande." });
     string[] recipients;
     try { recipients = await email.UpdateRecipientsAsync(input.Recipients, context.RequestAborted); }
     catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
@@ -241,5 +260,6 @@ record Topology(Device[] Devices, Edge[] Edges, long Revision);
 record DisplaySettings(string TopologyTitle);
 record SoundAnnouncement(string Id,string Kind);
 record EmailRecipientsRequest(string[]? Recipients);
+record EmailAutomaticRequest(bool? Enabled);
 
 

@@ -74,7 +74,7 @@ public sealed class MobileAccess
         }
         attempts.TryRemove(remote, out _);
         if (sessions.Count > 1000) return Results.Json(new { error = "Límite de sesiones alcanzado." }, statusCode: 429);
-        owner?.MobileLogin(remote, context.Request.Headers.UserAgent.ToString(), now);
+        var ownerQueued = owner?.MobileLogin(remote, context.Request.Headers.UserAgent.ToString(), now) == true;
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         sessions[token] = now.AddHours(24);
         context.Response.Cookies.Append("VisionMobile", token, new CookieOptions
@@ -82,7 +82,7 @@ public sealed class MobileAccess
             HttpOnly = true, SameSite = SameSiteMode.Strict, Secure = context.Request.IsHttps,
             MaxAge = TimeSpan.FromHours(24), Path = "/", IsEssential = true
         });
-        events?.Add(Guid.NewGuid().ToString(),now,"access","info","login_success",remote,"Consulta móvil",to:"connected",description:"Inicio de sesión con código compartido. No identifica a una persona. " + (owner?.Enabled == true ? "Aviso al autor registrado en la cola." : "Avisos al autor desactivados."));
+        events?.Add(Guid.NewGuid().ToString(),now,"access","info","login_success",remote,"Consulta móvil",to:"connected",description:"Inicio de sesión con código compartido. No identifica a una persona. " + (owner?.Enabled != true ? "Avisos al autor desactivados." : ownerQueued ? "Aviso al autor registrado en la cola." : "Aviso al autor omitido: ya se avisó de este dispositivo en las últimas 24 h o se alcanzó el límite diario."));
         return Results.Ok(new { connected = true });
     }
     public IResult Logout(HttpContext context)

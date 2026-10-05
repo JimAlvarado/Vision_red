@@ -15,7 +15,7 @@ public sealed class EventJournalWorker(EventRepository events, IncidentRepositor
                 foreach(var path in Directory.EnumerateFiles(dataDir,"eventos-monitor-*.jsonl"))
                 {
                     var length=new FileInfo(path).Length;if(lengths.GetValueOrDefault(path,-1)==length)continue;
-                    foreach(var line in File.ReadLines(path))
+                    foreach(var line in JournalFile.ReadLines(path))
                     {
                         if(string.IsNullOrWhiteSpace(line))continue;
                         try

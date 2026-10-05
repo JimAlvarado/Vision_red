@@ -27,6 +27,10 @@
 /work/tooling/test-owner/*
 !/work/tooling/test-owner/TestOwner.csproj
 !/work/tooling/test-owner/Program.cs
+!/work/tooling/test-volumen/
+/work/tooling/test-volumen/*
+!/work/tooling/test-volumen/TestVolumen.csproj
+!/work/tooling/test-volumen/Program.cs
 
 # Estado privado y operativo: nunca se sube ni se reemplaza con pull.
 outputs/MonitorRed.Panel/datos/

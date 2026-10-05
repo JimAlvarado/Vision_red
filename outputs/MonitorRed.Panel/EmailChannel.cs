@@ -98,7 +98,8 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
             var address = value?.Trim() ?? "";
             if (address.Length is < 3 or > 254 || address.Any(char.IsControl) ||
                 !System.Net.Mail.MailAddress.TryCreate(address, out var parsed) ||
-                !string.Equals(parsed.Address, address, StringComparison.OrdinalIgnoreCase) || !address.Contains('@'))
+                !string.Equals(parsed.Address, address, StringComparison.OrdinalIgnoreCase) || !address.Contains('@') ||
+                !ValidDomain(parsed.Host))
                 throw new ArgumentException("Hay una dirección de correo inválida. Revisa la lista.");
             if (!recipients.Contains(address, StringComparer.OrdinalIgnoreCase)) recipients.Add(address);
         }
@@ -121,6 +122,24 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
             settings = settings with { Recipients = recipients.ToArray() };
             FlushOwnerChanges(document);
             return Recipients;
+        }
+        finally { sendGate.Release(); }
+    }
+
+    // Requires a dotted domain such as empresa.com; rejects "usuario@empresa".
+    private static bool ValidDomain(string host) =>
+        host.Contains('.') && !host.StartsWith('.') && !host.EndsWith('.') && !host.Contains("..");
+
+    public async Task SetAutomaticAlertsAsync(bool enabled, CancellationToken cancellation)
+    {
+        await sendGate.WaitAsync(cancellation);
+        try
+        {
+            var document = JsonNode.Parse(File.ReadAllText(settingsPath)) as JsonObject
+                ?? throw new InvalidDataException("Configuración de correo inválida.");
+            document["automaticAlertsEnabled"] = enabled;
+            SaveBytes(settingsPath, JsonSerializer.SerializeToUtf8Bytes(document, json));
+            settings = settings with { AutomaticAlertsEnabled = enabled };
         }
         finally { sendGate.Release(); }
     }
@@ -201,7 +220,7 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
                 {
                     var after = response.Headers.RetryAfter?.Delta?.TotalSeconds ??
                         (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow)?.TotalSeconds ?? 60;
-                    return new("retry", "Microsoft limitó temporalmente el envío.", providerId, (int)Math.Clamp(after, 5, 3600));
+                    return new("retry", "Microsoft limitó temporalmente el envío.", providerId, (int)Math.Clamp(after, 5, 3600), Throttled: true);
                 }
                 if (response.StatusCode == HttpStatusCode.Unauthorized)
                 {
@@ -218,7 +237,7 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
         finally { sendGate.Release(); }
     }
 
-    public async Task<object> StatusAsync()
+    public async Task<object> StatusAsync(SendingLimit? limit = null)
     {
         EmailAuthorization auth;
         lock (authGate) auth = authorization;
@@ -230,7 +249,9 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
         catch (CryptographicException) { auth = new("error", Error: "La sesión guardada pertenece a otro usuario de Windows o no se puede abrir. Vuelve a autorizar."); }
         return new { settings.Provider, settings.AuthMode, settings.SenderAddress, settings.TestRecipient,
             settings.AutomaticAlertsEnabled, recipients = Recipients, ownerNotificationsEnabled = OwnerNotificationsEnabled,
-            ownerNotificationAddress = owner?.Address, authorization = auth, test = ReadReceipt() };
+            ownerNotificationAddress = owner?.Address, ownerConfigurationError = owner?.ConfigurationError,
+            limitedUntilUtc = limit is { PausedUntilUtc: { } until } && until > DateTimeOffset.UtcNow ? until : (DateTimeOffset?)null,
+            authorization = auth, test = ReadReceipt() };
     }
 
     public async Task<EmailAuthorization> StartAuthorizationAsync()

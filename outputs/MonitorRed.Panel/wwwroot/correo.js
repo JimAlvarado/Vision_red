@@ -1,5 +1,7 @@
 const $ = id => document.getElementById(id);
-let busy = false;
+let busy = false, automaticEnabled = false, togglingAutomatic = false;
+// Requires a dotted domain such as empresa.com; the browser alone accepts "usuario@empresa".
+const validEmailDomain = address => { const domain = address.split('@').pop() || ''; return domain.includes('.') && !domain.startsWith('.') && !domain.endsWith('.') && !domain.includes('..'); };
 let draftRecipients = [], savedRecipients = [], recipientsLoaded = false, savingRecipients = false, recipientGeneration = 0, ownerNotificationAddress = null;
 const recipientsDirty = () => JSON.stringify(draftRecipients) !== JSON.stringify(savedRecipients);
 function renderRecipients() {
@@ -37,8 +39,15 @@ async function refresh() {
     ownerNotificationAddress = data.ownerNotificationsEnabled ? data.ownerNotificationAddress : null;
     $('sender').textContent = $('expected').textContent = data.senderAddress;
     $('recipient').textContent = data.testRecipient;
+    automaticEnabled = data.automaticAlertsEnabled;
     $('automaticState').textContent = data.automaticAlertsEnabled ? 'Envío automático habilitado.' : 'Envío automático desactivado.';
-    $('ownerState').textContent = data.ownerNotificationsEnabled ? 'Avisos al autor habilitados: ' + data.ownerNotificationAddress + '. Nuevos destinatarios e inicios de sesión en la consulta.' : 'Avisos al autor pendientes de configurar en el servidor.';
+    $('automaticToggle').textContent = togglingAutomatic ? 'Guardando…' : data.automaticAlertsEnabled ? 'Desactivar envío' : 'Activar envío';
+    $('automaticToggle').disabled = togglingAutomatic;
+    $('limitState').hidden = !data.limitedUntilUtc;
+    $('limitState').textContent = data.limitedUntilUtc ? 'Microsoft limitó el envío del buzón. Vision pausó todos los correos y reintentará a las ' + VisionTime.time(data.limitedUntilUtc) + '; los avisos se enviarán juntos en un resumen.' : '';
+    $('ownerState').textContent = data.ownerNotificationsEnabled ? 'Avisos al autor habilitados: ' + data.ownerNotificationAddress + '. Nuevos destinatarios e inicios de sesión en la consulta (máximo un aviso por dispositivo cada 24 h).' :
+      data.ownerConfigurationError ? data.ownerConfigurationError :
+      data.ownerNotificationAddress ? 'Avisos al autor configurados y desactivados.' : 'Avisos al autor sin configurar en el servidor.';
     if (generation === recipientGeneration && !savingRecipients && !recipientsDirty()) {
       if (!recipientsLoaded || JSON.stringify(savedRecipients) !== JSON.stringify(data.recipients)) {
         draftRecipients = [...data.recipients]; savedRecipients = [...data.recipients]; recipientsLoaded = true; renderRecipients();
@@ -80,6 +89,7 @@ $('recipientForm').addEventListener('submit', event => {
   event.preventDefault(); if (!recipientsLoaded || savingRecipients) return;
   const input = $('recipientEmail'), address = input.value.trim(); input.value = address;
   if (!input.reportValidity()) return;
+  if (!validEmailDomain(address)) { $('recipientError').textContent = 'Escribe el correo completo, con dominio (por ejemplo nombre@empresa.com).'; return; }
   if (draftRecipients.some(value => value.toLowerCase() === address.toLowerCase())) { $('recipientError').textContent = 'Este correo ya está en la lista.'; return; }
   if (draftRecipients.length >= 50) { $('recipientError').textContent = 'Puedes agregar hasta 50 destinatarios.'; return; }
   draftRecipients.push(address); input.value = ''; $('recipientError').textContent = ''; renderRecipients(); input.focus();
@@ -93,6 +103,14 @@ $('saveRecipients').addEventListener('click', async () => {
     $('recipientEmail').value = '';
   } catch (error) { $('recipientError').textContent = error.message; }
   finally { savingRecipients = false; renderRecipients(); }
+});
+$('automaticToggle').addEventListener('click', async () => {
+  if (togglingAutomatic) return;
+  const enable = !automaticEnabled;
+  if (!confirm(enable ? '¿Activar el envío automático de alertas de red a los destinatarios?' : '¿Desactivar el envío automático? Las alertas quedarán pendientes y caducarán a los 30 minutos.')) return;
+  togglingAutomatic = true; $('automaticToggle').disabled = true; $('automaticToggle').textContent = 'Guardando…';
+  try { await api('/api/email/automatic', 'PUT', { enabled: enable }); } catch (error) { alert(error.message); }
+  finally { togglingAutomatic = false; await refresh(); }
 });
 window.addEventListener('beforeunload', event => { if (recipientsDirty()) { event.preventDefault(); event.returnValue = ''; } });
 refresh(); setInterval(refresh, 4000);

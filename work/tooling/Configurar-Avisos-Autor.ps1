@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string]$CorreoAutor,
+﻿param([Parameter(Mandatory)][string]$CorreoAutor,
     [string]$PanelPath = 'C:\Proyectos\Vision_red\outputs\MonitorRed.Panel')
 $ErrorActionPreference = 'Stop'
 $address = $CorreoAutor.Trim()

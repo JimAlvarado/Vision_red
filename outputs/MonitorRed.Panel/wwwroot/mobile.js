@@ -140,7 +140,9 @@ async function refresh(reportError=false) {
     $('updated').textContent = status.checkedAtUtc ? 'Última lectura: ' + date(status.checkedAtUtc) : 'Esperando primera lectura';
     $('warning').hidden = !stale && status.condition === 'operating' && status.incidentDetectionEnabled;
     $('warning').textContent = stale ? 'Los datos están desactualizados. Confirma la conexión con Vision.' : status.condition !== 'operating' ? 'Vision no puede confirmar el acceso a la red. Revisar VPN y rutas; no se asume que todos los equipos estén apagados.' : 'Modo de observación: incidentes desactivados.';
-    $('mailState').textContent = mail.automaticAlertsEnabled ? `${mail.pending} pendientes · ${mail.needsAttention} requieren revisión` : 'Envío automático desactivado';
+    $('mailState').textContent = !mail.automaticAlertsEnabled ? 'Envío automático desactivado' :
+      mail.limitedUntilUtc ? `Microsoft limitó el envío · se reintenta a las ${VisionTime.time(mail.limitedUntilUtc)} · ${mail.pending} pendientes` :
+      `${mail.pending} pendientes · ${mail.needsAttention} requieren revisión`;
     $('mailCount').textContent = mail.accepted + ' aceptados por Microsoft';
     renderDevices(); renderIncidents(); if (model.revision !== revision) { revision = model.revision; drawMap(); } else updateMap();
   } catch (error) {
