@@ -1,14 +1,14 @@
 # Estado de Windows Server — Claude
 
-Actualizado por Claude: 5 de octubre de 2026, 16:00 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
+Actualizado por Claude: 5 de octubre de 2026, 16:15 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
 
 ## Situación actual
 
 - Ruta: `C:\Proyectos\Vision_red`; servicio: `Vision` (automático, cuenta de dominio del usuario), `Running`.
 - Commit de aplicación ejecutado: `fc9c0c7`. HEAD local: `ee87f64` (solo coordinación sobre `72fc5af`), sin cambios locales.
 - Correo: **migrado al buzón institucional** (`organizational-device-code`, tenant `organizations`, mismo ClientId). Autorizado desde la cuenta de Windows del servicio; la identidad corresponde al buzón pedido por el usuario. Prueba aceptada por Microsoft y **recepción confirmada por el usuario**.
-- Alertas de red automáticas: **apagadas**. Avisos al autor: **configurados pero apagados**. 3 destinatarios; el autor solicitado está entre ellos.
-- Monitoreo: desde 15:51 **sin alcance a la red monitoreada** (ver Intervención 4); no es un fallo de Vision.
+- Alertas de red automáticas: **encendidas desde 16:05 por decisión del usuario**, antes de la protección de volumen (ver Intervención 4). Avisos al autor: **configurados pero apagados**. 3 destinatarios; el autor solicitado está entre ellos.
+- Monitoreo: `operating`. Hubo pérdida de alcance a la red monitoreada entre 15:51 y 15:56 (ver Intervención 4); no fue un fallo de Vision.
 
 ## Intervención 4 — 5 de octubre de 2026, 15:38–16:00: migración al correo institucional
 
@@ -22,6 +22,9 @@ Actualizado por Claude: 5 de octubre de 2026, 16:00 (Ciudad de México). Todo lo
 - Después: cola `accepted=33, expired=146, failed=29, awaiting-configuration=1`. No se reenvió nada. El nuevo aviso en espera es la pérdida de acceso de las 15:51; no sale porque los canales están apagados y caducará a los 30 min.
 - **Pérdida de acceso a la red desde 15:51:** los 19 equipos responden `TimedOut` y se abrió el incidente `network_down`. Comprobado fuera de Vision: el servidor tampoco recibe respuesta a ping de los equipos; la traza llega al segundo salto (red interna) y se corta después; el gateway del servidor responde. Es un problema de ruta, enlace o firewall entre el servidor y la red de equipos (ya ocurrió varias veces por la mañana). Lo debe revisar el área de redes.
 - Diario JSONL: 2 errores desde 15:22 (15:24:15 y 15:41:16, uno por arranque). Sigue abierto.
+- **16:02–16:08, activación de alertas de red (decisión explícita del usuario).** El usuario hizo una prueba de caída y el aviso quedó `awaiting-configuration` por tener los canales apagados. Se le explicó el riesgo (sin agrupación, un correo por equipo y por cambio) y pidió activarlas. No hay interruptor en el panel: detener (UAC) → respaldo de `email-settings.json` en `datos` → `automaticAlertsEnabled=true` (resto de campos sin cambios) → iniciar (UAC). Avisos al autor siguen `enabled=false`.
+- Al arrancar se enviaron los 6 avisos en espera (todos con menos de 30 min): 4 del acceso a la red (15:51–15:56) y la caída y recuperación de prueba (16:00 y 16:04). Microsoft aceptó los 6 entre 16:05:43 y 16:06:19, al primer intento. El usuario confirmó la recepción. La sesión institucional siguió válida después del reinicio.
+- Para Codex: en `correo.js` el texto "Avisos al autor pendientes de configurar en el servidor" aparece también cuando el autor está configurado pero `enabled=false`; conviene distinguir "configurado y apagado" de "sin configurar". Tampoco existe un interruptor en el panel para las alertas de red.
 
 ## Intervención 3 — 5 de octubre de 2026, 15:22–15:30: actualización a `72fc5af`
 
