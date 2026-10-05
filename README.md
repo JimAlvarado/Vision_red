@@ -2,6 +2,8 @@
 
 Monitoreo de red Vision (MonitorRed.Panel, .NET 10 autocontenido).
 
+Antes de trabajar, consultar [coordinacion/LEEME.md](coordinacion/LEEME.md), [coordinacion/G15.md](coordinacion/G15.md) y [coordinacion/SERVIDOR.md](coordinacion/SERVIDOR.md). Estos archivos contienen el estado compartido, las verificaciones y el siguiente paso.
+
 ## Flujo de trabajo
 
 - **Desarrollo solo en G15** (local, con Codex). Ahí se modifica, se compila y se hace push.

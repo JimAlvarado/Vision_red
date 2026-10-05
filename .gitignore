@@ -2,6 +2,9 @@
 /*
 !/.gitignore
 !/README.md
+!/coordinacion/
+/coordinacion/*
+!/coordinacion/*.md
 !/outputs/
 /outputs/*
 !/outputs/MonitorRed.Panel/
