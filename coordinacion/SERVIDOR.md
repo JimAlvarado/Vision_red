@@ -1,14 +1,21 @@
 # Estado de Windows Server — Claude
 
-Actualizado por Claude: 5 de octubre de 2026, 17:45 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
+Actualizado por Claude: 5 de octubre de 2026, 17:50 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
 
 ## Situación actual
 
 - Ruta: `C:\Proyectos\Vision_red`; servicio: `Vision` (automático, cuenta de dominio del usuario), `Running`.
-- Aplicación ejecutada: **compilada en el servidor por Claude** (Intervención 5), commit `e4d447d`.
-- **Integración con Codex:** mientras se hacía la Intervención 5, Codex publicó `03a9f28`/`20299f0` (accesos móviles exclusivos). Claude los mezcló en el commit de integración que acompaña este registro: `MobileAccess.cs` conserva la reserva exclusiva de Codex y registra si el aviso al autor se omitió por el límite; `correo.css` y `.gitignore` conservan ambas partes; publicación regenerada; `test-volumen` y `test-owner` (incluido `MobileAccessTests`) pasan. **Esa integración está en Git pero no instalada en el servidor**: se instalará cuando el usuario lo encargue (requiere que los celulares vuelvan a introducir su código una vez).
+- Aplicación ejecutada: **`abaaa25`** (integración de los accesos móviles exclusivos de Codex con las correcciones de la Intervención 5), instalada a petición del usuario (Intervención 6). HEAD local `abaaa25`, sin cambios locales.
+- Accesos móviles: 4 códigos sin cambios, los 4 disponibles al cierre (los celulares deben volver a introducir su código una vez).
 - Correo: buzón institucional (`organizational-device-code`) autorizado. Alertas de red automáticas **encendidas** (decisión del usuario). Avisos al autor configurados y **apagados**. 2 destinatarios (el usuario editó la lista a las 16:06).
 - Monitoreo `operating`, 19 equipos (el usuario agregó y retiró un equipo entre 17:27 y 17:28; revisión 176).
+
+## Intervención 6 — 5 de octubre de 2026, 17:40–17:50: instalación de `abaaa25` (accesos móviles exclusivos)
+
+- Integración: durante la Intervención 5 Codex publicó `03a9f28`/`20299f0`. Claude los mezcló con `e4d447d` en `abaaa25` (merge): `MobileAccess.cs` conserva la reserva exclusiva de Codex y registra si el aviso al autor se omitió por el límite; `correo.css` y `.gitignore` conservan ambas partes; publicación regenerada; `test-volumen` (31) y `test-owner` (incluido `MobileAccessTests`) pasan.
+- Instalación: detener (UAC) → respaldo de `datos` → `git pull --ff-only` → iniciar (UAC). Archivos publicados idénticos a HEAD; `datos` con el mismo SHA-256; `mobile-access.dpapi` y `mobile-access-codes.dpapi` sin cambios; los 4 códigos idénticos a los previos (comparados por huella, sin registrarlos). Panel, mapa (revisión 176), móvil y `acceso-celular.html` 200; correo sin cambios (automático encendido, autor apagado, 2 destinatarios); 0 errores al arrancar.
+- Prueba HTTP desde el servidor con tres sesiones de navegador independientes por el puerto móvil local: A entra con el código 1 (200); B con el mismo código → **409**; B con el código 2 → 200 sin afectar a A; reingreso de A con su cookie → 200 sin duplicar; liberar desde el puerto móvil o sin cabecera de editor → 403; liberar el acceso 1 desde el editor → A recibe 401 y B sigue con 200; C entra con el código 1 liberado → 200; cierre de sesión de C → 200 y después 401. Al final se liberó el acceso 2; los 4 quedaron disponibles. Se creó `mobile-sessions.dpapi` en `datos`. Avisos al autor apagados: sin correos.
+- No probado: persistencia de sesiones tras otro reinicio de Vision (se verá en el próximo reinicio) y prueba con dos celulares reales (la hará el usuario).
 
 ## Intervención 5 — 5 de octubre de 2026, 16:45–17:45: correcciones hechas en el servidor (excepción autorizada)
 
@@ -46,10 +53,6 @@ Actualizado por Claude: 5 de octubre de 2026, 17:45 (Ciudad de México). Todo lo
 - Scripts de Codex ejecutados como copias con BOM (corregido en Intervención 5); buzón institucional autorizado desde la cuenta del servicio; una sola prueba aceptada y recibida. Canales apagados por el script.
 - 16:05: el usuario pidió encender las alertas de red; se enviaron los 6 avisos en espera (aceptados al primer intento, recibidos).
 - 15:51–15:56: pérdida de alcance a la red de equipos desde el servidor (ping y traza fallan fuera del servidor); problema de red, no de Vision.
-
-## Intervención 3 — 5 de octubre de 2026, 15:22–15:30: actualización a `72fc5af`
-
-- Detener → respaldo → `git pull --ff-only` → iniciar. Binarios idénticos a HEAD, `datos` intacto.
 
 ## Pendientes
 
