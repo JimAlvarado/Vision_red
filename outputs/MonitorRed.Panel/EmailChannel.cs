@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Identity.Client;
 
 public sealed record EmailSettings(string Provider, string AuthMode, string ClientId, string SenderAddress,
@@ -14,7 +15,8 @@ public sealed record EmailReceipt(string RequestId, string Recipient, string Sub
 public sealed class EmailChannel : IDisposable, IAlertTransport
 {
     private static readonly string[] Scopes = ["https://graph.microsoft.com/Mail.Send"];
-    private readonly EmailSettings settings;
+    private volatile EmailSettings settings;
+    private readonly string settingsPath;
     private readonly IPublicClientApplication identity;
     private readonly HttpClient http;
     private readonly string cachePath;
@@ -31,7 +33,8 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
     public EmailChannel(string dataDir, IHostApplicationLifetime lifetime)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("El correo de Vision requiere Windows.");
-        settings = JsonSerializer.Deserialize<EmailSettings>(File.ReadAllText(Path.Combine(dataDir, "email-settings.json")), json)
+        settingsPath = Path.Combine(dataDir, "email-settings.json");
+        settings = JsonSerializer.Deserialize<EmailSettings>(File.ReadAllText(settingsPath), json)
             ?? throw new InvalidDataException("Configuración de correo vacía.");
         if (settings.Provider != "microsoft-graph" || settings.AuthMode != "personal-device-code" ||
             !Guid.TryParse(settings.ClientId, out _))
@@ -73,7 +76,34 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
     }
 
     public bool AutomaticAlertsEnabled => settings.AutomaticAlertsEnabled;
-    public string[] Recipients => settings.Recipients ?? [settings.TestRecipient];
+    public string[] Recipients => (settings.Recipients ?? [settings.TestRecipient]).ToArray();
+
+    public async Task<string[]> UpdateRecipientsAsync(string[]? addresses, CancellationToken cancellation)
+    {
+        if (addresses is null || addresses.Length is < 1 or > 50)
+            throw new ArgumentException("Agrega entre 1 y 50 destinatarios.");
+        var recipients = new List<string>();
+        foreach (var value in addresses)
+        {
+            var address = value?.Trim() ?? "";
+            if (address.Length is < 3 or > 254 || address.Any(char.IsControl) ||
+                !System.Net.Mail.MailAddress.TryCreate(address, out var parsed) ||
+                !string.Equals(parsed.Address, address, StringComparison.OrdinalIgnoreCase) || !address.Contains('@'))
+                throw new ArgumentException("Hay una dirección de correo inválida. Revisa la lista.");
+            if (!recipients.Contains(address, StringComparer.OrdinalIgnoreCase)) recipients.Add(address);
+        }
+        await sendGate.WaitAsync(cancellation);
+        try
+        {
+            var document = JsonNode.Parse(File.ReadAllText(settingsPath)) as JsonObject
+                ?? throw new InvalidDataException("Configuración de correo inválida.");
+            document["recipients"] = JsonSerializer.SerializeToNode(recipients.ToArray());
+            SaveBytes(settingsPath, JsonSerializer.SerializeToUtf8Bytes(document, json));
+            settings = settings with { Recipients = recipients.ToArray() };
+            return Recipients;
+        }
+        finally { sendGate.Release(); }
+    }
 
     public async Task<bool> CheckConnectionAsync()
     {

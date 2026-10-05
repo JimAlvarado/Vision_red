@@ -164,6 +164,18 @@ app.MapGet("/api/email/status", async (EmailChannel email, HttpContext context) 
     return Results.Ok(await email.StatusAsync());
 });
 app.MapPost("/api/email/check", async (EmailChannel email) => Results.Ok(new { ready = await email.CheckConnectionAsync() }));
+app.MapPut("/api/email/recipients", async (EmailRecipientsRequest input, EmailChannel email, EventRepository events, HttpContext context) =>
+{
+    if (context.Request.ContentLength > 16384) return Results.BadRequest(new { error = "La lista es demasiado grande." });
+    string[] recipients;
+    try { recipients = await email.UpdateRecipientsAsync(input.Recipients, context.RequestAborted); }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+    { return Results.Json(new { error = "No se pudieron guardar los destinatarios. Revisa los permisos y vuelve a intentar." }, statusCode: 503); }
+    events.Add(Guid.NewGuid().ToString(), DateTimeOffset.UtcNow, "configuration", "info", "email_recipients_updated",
+        description: $"Lista de destinatarios de correo actualizada: {recipients.Length} destinatarios.");
+    return Results.Ok(new { recipients });
+});
 app.MapPost("/api/email/authorize", async (EmailChannel email, HttpContext context) =>
 {
     context.Response.Headers.CacheControl = "no-store";
@@ -227,5 +239,6 @@ record Edge(string Source, string Target);
 record Topology(Device[] Devices, Edge[] Edges, long Revision);
 record DisplaySettings(string TopologyTitle);
 record SoundAnnouncement(string Id,string Kind);
+record EmailRecipientsRequest(string[]? Recipients);
 
 

@@ -1,19 +1,43 @@
 const $ = id => document.getElementById(id);
 let busy = false;
+let draftRecipients = [], savedRecipients = [], recipientsLoaded = false, savingRecipients = false, recipientGeneration = 0;
+const recipientsDirty = () => JSON.stringify(draftRecipients) !== JSON.stringify(savedRecipients);
+function renderRecipients() {
+  const list = $('recipientList'); list.replaceChildren();
+  $('recipientCount').textContent = draftRecipients.length + (draftRecipients.length === 1 ? ' correo' : ' correos');
+  for (const [index, address] of draftRecipients.entries()) {
+    const row = document.createElement('li'), text = document.createElement('span'), remove = document.createElement('button');
+    text.textContent = address; remove.type = 'button'; remove.className = 'remove-recipient'; remove.textContent = 'Quitar';
+    remove.setAttribute('aria-label', 'Quitar ' + address); remove.disabled = savingRecipients;
+    remove.addEventListener('click', () => { draftRecipients.splice(index, 1); $('recipientError').textContent = ''; renderRecipients(); });
+    row.append(text, remove); list.append(row);
+  }
+  if (!draftRecipients.length) { const row = document.createElement('li'); row.className = 'empty-recipients'; row.textContent = 'Agrega al menos un correo para recibir notificaciones.'; list.append(row); }
+  $('recipientEmail').disabled = $('addRecipient').disabled = !recipientsLoaded || savingRecipients;
+  $('saveRecipients').disabled = !recipientsLoaded || savingRecipients || !recipientsDirty() || !draftRecipients.length;
+  $('saveRecipients').textContent = savingRecipients ? 'Guardando…' : 'Guardar cambios';
+  $('recipientFeedback').textContent = savingRecipients ? 'Guardando la lista…' : recipientsDirty() ? 'Tienes cambios sin guardar.' : 'Lista actualizada.';
+}
 const states = { starting: 'Solicitando código a Microsoft…', waiting: 'Esperando tu autorización en Microsoft…', connected: 'Buzón autorizado.', disconnected: 'Buzón pendiente de autorización.', error: 'Se requiere atención.' };
-async function api(path, method = 'GET') {
-  const response = await fetch(path, { method, cache: 'no-store', headers: method === 'GET' ? {} : { 'X-Topology-Editor': '1' } });
+async function api(path, method = 'GET', body) {
+  const response = await fetch(path, { method, cache: 'no-store', headers: method === 'GET' ? {} : { 'X-Topology-Editor': '1', ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'No se pudo completar la operación.');
   return data;
 }
 async function refresh() {
+  const generation = recipientGeneration;
   try {
     const data = await api('/api/email/status');
     const auth = data.authorization;
     $('sender').textContent = $('expected').textContent = data.senderAddress;
     $('recipient').textContent = data.testRecipient;
-    $('automaticState').textContent = data.automaticAlertsEnabled ? 'Envío automático habilitado. Destinatarios: ' + data.recipients.join(', ') : 'Envío automático desactivado.';
+    $('automaticState').textContent = data.automaticAlertsEnabled ? 'Envío automático habilitado.' : 'Envío automático desactivado.';
+    if (generation === recipientGeneration && !savingRecipients && !recipientsDirty()) {
+      if (!recipientsLoaded || JSON.stringify(savedRecipients) !== JSON.stringify(data.recipients)) {
+        draftRecipients = [...data.recipients]; savedRecipients = [...data.recipients]; recipientsLoaded = true; renderRecipients();
+      }
+    }
     $('status').textContent = auth.error || states[auth.state] || auth.state;
     $('instructions').hidden = auth.state !== 'waiting';
     $('code').textContent = auth.userCode || '';
@@ -46,4 +70,23 @@ $('send').addEventListener('click', async () => {
   try { await api('/api/email/test', 'POST'); } catch (error) { $('result').textContent = error.message; }
   finally { busy = false; await refresh(); }
 });
+$('recipientForm').addEventListener('submit', event => {
+  event.preventDefault(); if (!recipientsLoaded || savingRecipients) return;
+  const input = $('recipientEmail'), address = input.value.trim(); input.value = address;
+  if (!input.reportValidity()) return;
+  if (draftRecipients.some(value => value.toLowerCase() === address.toLowerCase())) { $('recipientError').textContent = 'Este correo ya está en la lista.'; return; }
+  if (draftRecipients.length >= 50) { $('recipientError').textContent = 'Puedes agregar hasta 50 destinatarios.'; return; }
+  draftRecipients.push(address); input.value = ''; $('recipientError').textContent = ''; renderRecipients(); input.focus();
+});
+$('saveRecipients').addEventListener('click', async () => {
+  if (!recipientsLoaded || savingRecipients || !recipientsDirty() || !draftRecipients.length) return;
+  savingRecipients = true; recipientGeneration++; $('recipientError').textContent = ''; renderRecipients();
+  try {
+    const data = await api('/api/email/recipients', 'PUT', { recipients: [...draftRecipients] });
+    draftRecipients = [...data.recipients]; savedRecipients = [...data.recipients];
+    $('recipientEmail').value = '';
+  } catch (error) { $('recipientError').textContent = error.message; }
+  finally { savingRecipients = false; renderRecipients(); }
+});
+window.addEventListener('beforeunload', event => { if (recipientsDirty()) { event.preventDefault(); event.returnValue = ''; } });
 refresh(); setInterval(refresh, 4000);
