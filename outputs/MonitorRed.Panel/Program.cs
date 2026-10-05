@@ -151,8 +151,9 @@ app.MapPut("/api/display-settings", async (DisplaySettings settings) =>
 app.MapGet("/api/mobile/access", (MobileAccess mobile, VpnMobileNetwork network, HttpContext context) =>
 {
     context.Response.Headers.CacheControl = "no-store";
-    return Results.Ok(new { code = mobile.LocalAccessCode, codes = mobile.LocalAccessCodes, url = network.Url, listeningOnVpn = network.ListeningOnVpn, mode = "private-vpn" });
+    return Results.Ok(new { code = mobile.LocalAccessCode, codes = mobile.LocalAccessCodes, accesses = mobile.AccessStatus(), url = network.Url, listeningOnVpn = network.ListeningOnVpn, mode = "private-vpn" });
 });
+app.MapPost("/api/mobile/access/{slot:int}/release", (int slot, MobileAccess mobile) => mobile.Release(slot));
 app.MapPost("/api/mobile/login", (HttpContext context, MobileLogin input, MobileAccess mobile) => mobile.Login(context, input));
 app.MapPost("/api/mobile/logout", (HttpContext context, MobileAccess mobile) => mobile.Logout(context));
 app.MapGet("/api/mobile/overview", (NotificationOutbox outbox, EmailChannel email) =>

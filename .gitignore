@@ -27,6 +27,7 @@
 /work/tooling/test-owner/*
 !/work/tooling/test-owner/TestOwner.csproj
 !/work/tooling/test-owner/Program.cs
+!/work/tooling/test-owner/MobileAccessTests.cs
 !/work/tooling/test-volumen/
 /work/tooling/test-volumen/*
 !/work/tooling/test-volumen/TestVolumen.csproj

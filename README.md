@@ -60,3 +60,13 @@ La agrupación, control de intermitencias y pausa global por límites siguen pen
 Todos los mensajes nuevos empiezan con `[VISION-APODACA]`: caída confirmada, conectividad restablecida, cambios de destinatarios, acceso móvil y pruebas. El transporte agrega el prefijo también a los avisos anteriores todavía pendientes, sin duplicarlo. No modifica ni reenvía mensajes ya aceptados.
 
 Crear la carpeta Vision Apodaca en el correo del destinatario y una regla que mueva allí los mensajes del remitente institucional autorizado cuyo asunto contenga `[VISION-APODACA]`. El prefijo diferencia las notificaciones de Vision de otros mensajes del mismo buzón.
+
+## Códigos permanentes y acceso exclusivo
+
+Los cuatro códigos existentes no caducan ni cambian al actualizar o reiniciar Vision. Cada código admite una sola sesión de navegador a la vez; los cuatro pueden utilizarse simultáneamente en dispositivos distintos. Otro navegador que introduzca un código ocupado recibe un aviso de acceso en uso, sin cerrar la sesión original ni generar otro aviso al autor.
+
+Las sesiones no vencen por tiempo en el servidor y se conservan cifradas para la cuenta del servicio en `datos/mobile-sessions.dpapi`. Solo se guarda el hash del token. La cookie persistente se renueva mientras se usa Vision; el navegador debe conservarla. Cambiar de navegador, usar modo privado o borrar cookies puede requerir liberar el acceso anterior. La identificación corresponde a la sesión del navegador, no a un identificador físico del teléfono.
+
+Cerrar sesión libera el código. Desde la página local Vision en tu celular se puede consultar Disponible/En uso y pulsar Liberar acceso para revocar la sesión elegida sin cambiar su código. Esta operación está bloqueada en la consulta móvil y requiere la protección de escritura del editor local. Si se pierde el dispositivo, liberarlo desde el servidor permite volver a usar el mismo código.
+
+La primera actualización desde la versión anterior requiere introducir una vez los mismos códigos, porque las sesiones anteriores se guardaban solo en memoria. A partir de esta entrega, respaldar también mobile-sessions.dpapi y conservar la cuenta de Windows del servicio. No copiar códigos ni sesiones de prueba sobre los datos del servidor. El proyecto de pruebas de tooling comprueba exclusividad concurrente, persistencia, liberación, cierre de sesión y ausencia de secretos en el estado publicado.

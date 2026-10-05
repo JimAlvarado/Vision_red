@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Hosting;
 var root = Path.Combine(Directory.GetCurrentDirectory(), "fixtures", Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
+await MobileAccessTests.Run(root);
 var sample = new Incident("subject", "127.0.0.1", "Prueba", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, "Prueba");
 foreach (var kind in new[] { "down", "recovery" })
 {

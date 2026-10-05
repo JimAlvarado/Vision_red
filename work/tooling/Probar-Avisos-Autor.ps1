@@ -9,6 +9,8 @@ if (@(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-O
 $emailPath = Join-Path $data 'email-settings.json'
 $outboxPath = Join-Path $data 'alertas-pendientes.json'
 $ownerPath = Join-Path $data 'owner-notifications.json'
+$mobileSessionsPath = Join-Path $data 'mobile-sessions.dpapi'
+$originalMobileSessions = if (Test-Path -LiteralPath $mobileSessionsPath) { [IO.File]::ReadAllBytes($mobileSessionsPath) } else { $null }
 $originalEmail = [IO.File]::ReadAllText($emailPath)
 $settings = $originalEmail | ConvertFrom-Json
 if ($settings.automaticAlertsEnabled) { throw 'No probar con alertas de red habilitadas.' }
@@ -33,6 +35,7 @@ function Update-Recipients($addresses) {
     [void](Invoke-RestMethod 'http://127.0.0.1:5080/api/email/recipients' -Method PUT -Headers @{'X-Topology-Editor'='1'} -ContentType 'application/json' -Body (@{recipients=@($addresses)} | ConvertTo-Json))
 }
 try {
+    if (Test-Path -LiteralPath $mobileSessionsPath) { Remove-Item -LiteralPath $mobileSessionsPath }
     $settings.recipients = @('base@example.invalid')
     $settings | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $emailPath
     @{recipientAddress='autor@example.invalid';enabled=$true} | ConvertTo-Json | Set-Content -LiteralPath $ownerPath
@@ -89,4 +92,6 @@ try {
     [IO.File]::WriteAllText($outboxPath,$originalOutbox,[Text.UTF8Encoding]::new($false))
     if ($originalOwner) { [IO.File]::WriteAllText($ownerPath,$originalOwner,[Text.UTF8Encoding]::new($false)) }
     else { @{recipientAddress='autor@example.invalid';enabled=$false} | ConvertTo-Json | Set-Content -LiteralPath $ownerPath }
+    if ($null -ne $originalMobileSessions) { [IO.File]::WriteAllBytes($mobileSessionsPath, $originalMobileSessions) }
+    elseif (Test-Path -LiteralPath $mobileSessionsPath) { Remove-Item -LiteralPath $mobileSessionsPath }
 }

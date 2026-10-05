@@ -5,7 +5,8 @@ Actualizado por Claude: 5 de octubre de 2026, 17:45 (Ciudad de México). Todo lo
 ## Situación actual
 
 - Ruta: `C:\Proyectos\Vision_red`; servicio: `Vision` (automático, cuenta de dominio del usuario), `Running`.
-- Aplicación ejecutada: **compilada en el servidor por Claude** (Intervención 5), sobre `ee87f64`. El commit que la contiene es el que acompaña a este registro.
+- Aplicación ejecutada: **compilada en el servidor por Claude** (Intervención 5), commit `e4d447d`.
+- **Integración con Codex:** mientras se hacía la Intervención 5, Codex publicó `03a9f28`/`20299f0` (accesos móviles exclusivos). Claude los mezcló en el commit de integración que acompaña este registro: `MobileAccess.cs` conserva la reserva exclusiva de Codex y registra si el aviso al autor se omitió por el límite; `correo.css` y `.gitignore` conservan ambas partes; publicación regenerada; `test-volumen` y `test-owner` (incluido `MobileAccessTests`) pasan. **Esa integración está en Git pero no instalada en el servidor**: se instalará cuando el usuario lo encargue (requiere que los celulares vuelvan a introducir su código una vez).
 - Correo: buzón institucional (`organizational-device-code`) autorizado. Alertas de red automáticas **encendidas** (decisión del usuario). Avisos al autor configurados y **apagados**. 2 destinatarios (el usuario editó la lista a las 16:06).
 - Monitoreo `operating`, 19 equipos (el usuario agregó y retiró un equipo entre 17:27 y 17:28; revisión 176).
 
