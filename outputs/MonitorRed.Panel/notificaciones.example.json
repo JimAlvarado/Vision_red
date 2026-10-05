@@ -1,0 +1,6 @@
+{
+  "senderAddress": "alertas.vision.apodaca@hotmail.com",
+  "provider": "microsoft-graph",
+  "recipients": [],
+  "enabled": false
+}

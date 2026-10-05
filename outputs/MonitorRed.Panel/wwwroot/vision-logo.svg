@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 260" role="img" aria-labelledby="title">
+<title id="title">VISION · Aluminio</title>
+<defs><pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#163643" stroke-width=".6"/></pattern><linearGradient id="card" x2="1" y2="1"><stop stop-color="#1b515a"/><stop offset="1" stop-color="#0b202e"/></linearGradient></defs>
+<style>.orbit{transform-origin:180px 138px;animation:orbit 22s linear infinite}.scan{animation:scan 6s ease-in-out infinite}.glow{animation:glow 3s ease-in-out infinite}@keyframes orbit{to{transform:rotate(360deg)}}@keyframes scan{0%,100%{transform:translateY(-54px);opacity:.25}50%{transform:translateY(100px);opacity:.7}}@keyframes glow{50%{opacity:.45}}@media(prefers-reduced-motion:reduce){.orbit,.scan,.glow{animation:none}}</style>
+<rect x="1" y="1" width="358" height="258" rx="14" fill="#081722" stroke="#24424f"/><rect x="2" y="2" width="356" height="256" rx="14" fill="url(#grid)"/>
+<circle cx="180" cy="138" r="108" fill="none" stroke="#4cdbb7" opacity=".2"/><g class="orbit"><circle cx="180" cy="138" r="89" fill="none" stroke="#57ddc1" stroke-dasharray="2 5" opacity=".35"/><circle cx="269" cy="138" r="3" fill="#83ffe1"/></g>
+<path d="M20 138H340M180 20V245" stroke="#57ddc1" opacity=".2"/>
+<rect x="108" y="23" width="144" height="26" rx="4" fill="#58dfbd"/><text x="180" y="41" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="800" letter-spacing="3" fill="#071923">VISION</text>
+<rect x="91" y="51" width="178" height="179" rx="12" fill="none" stroke="#59e9c8"/>
+<rect x="102" y="63" width="156" height="155" rx="9" fill="url(#card)" stroke="#357581"/>
+<g font-family="Arial,sans-serif"><g fill="#87b6c2" font-size="7"><text x="112" y="77">Masa atómica</text><text x="248" y="77" text-anchor="end">Número atómico</text></g><g fill="#b2f1e0" font-size="11" font-weight="bold"><text x="112" y="91">26.98 u</text><text x="248" y="91" text-anchor="end">13</text></g><text x="180" y="157" text-anchor="middle" font-size="60" fill="#dffff5">Al</text><text x="180" y="184" text-anchor="middle" font-size="17" fill="#b1d4d1">Aluminio</text><g font-size="7"><text x="112" y="208" fill="#87b6c2">Metal</text><text x="248" y="208" text-anchor="end" fill="#87ffe3">+3</text></g></g>
+<path class="scan" d="M18 100H342" stroke="#62ffda" opacity=".5"/>
+<path class="glow" d="M91 70V60Q91 51 100 51H112M249 230H260Q269 230 269 221V210" fill="none" stroke="#d8fff8" stroke-width="2"/>
+</svg>

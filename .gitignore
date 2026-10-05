@@ -1,0 +1,14 @@
+# Estado en vivo de cada servidor: nunca se versiona (el repo es público y un pull lo pisaría)
+outputs/MonitorRed.Panel/datos/
+outputs/MonitorRed.Panel/logs/
+outputs/MonitorRed.Panel/notificaciones.json
+*.dpapi
+
+# Respaldos locales
+*.zip
+
+# Compilación (para cuando se agregue src/ desde G15)
+bin/
+obj/
+.vs/
+*.user

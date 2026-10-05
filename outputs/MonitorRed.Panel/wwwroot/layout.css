@@ -1,0 +1,36 @@
+/* Ambient motion remains behind opaque map and card surfaces. */
+body{isolation:isolate}
+.vision-particles{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:radial-gradient(ellipse at 12% 5%,#123e4440,transparent 48%),radial-gradient(ellipse at 90% 90%,#18355a35,transparent 48%)}
+.vision-particles i{position:absolute;left:var(--x);top:var(--y);width:3px;height:3px;border-radius:50%;background:#76ead4;box-shadow:0 0 8px #63ddbf88;opacity:.3;animation:vision-drift var(--duration) ease-in-out var(--delay) infinite alternate}
+.vision-particles i:nth-child(3n){width:2px;height:2px;background:#63bded;opacity:.22}
+@keyframes vision-drift{0%{transform:translate3d(-14px,24px,0);opacity:.12}50%{opacity:.42}100%{transform:translate3d(32px,-34px,0);opacity:.16}}
+.vision-particles.is-paused i{animation-play-state:paused}
+.vision-compact header{height:76px;min-height:76px;padding:7px 20px;gap:20px;background:#0b1626bd;flex-wrap:nowrap;box-sizing:border-box}
+.vision-compact header .vision-emblem{width:84px;height:60px}
+.vision-compact .brand{flex-shrink:0}
+.vision-header-title{flex:1;min-width:0}
+.vision-header-title .eyebrow{font-size:8px;letter-spacing:1.7px;margin-bottom:4px}
+.vision-header-title h1{font-size:22px;line-height:1.2;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vision-header-title p{display:none}
+.vision-compact header #addDevice{flex-shrink:0;font-size:12px;padding:9px 14px;white-space:nowrap}
+.vision-compact .header-right{flex-shrink:0;font-size:10px;gap:8px}
+body.vision-compact > main{height:calc(100dvh - 76px)}
+.vision-compact .workspace{padding:12px 16px 12px;gap:10px}
+.vision-compact .rail{background:#0b1626b8}
+.vision-compact #canvas{background-color:#0b1220}
+@media(max-width:1050px){.vision-compact header{gap:12px}.vision-compact .header-right .local-dot,.vision-compact .header-right .divider{display:none}.vision-compact .header-right{font-size:9px;max-width:130px}.vision-header-title h1{font-size:19px}}
+@media(max-width:600px){.vision-compact header{height:74px;min-height:74px;padding:7px 12px;gap:10px}.vision-compact header .vision-emblem{width:70px;height:51px}.vision-header-title h1{font-size:16px}.vision-header-title .eyebrow{font-size:7px;letter-spacing:.8px}.vision-compact header #addDevice{font-size:10px;padding:8px}.vision-compact .header-right{display:none}body.vision-compact > main{height:calc(100dvh - 74px)}.vision-particles i:nth-child(n+15){display:none}}
+@media(prefers-reduced-motion:reduce){.vision-particles i{animation:none}}
+.vision-particle-canvas{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 12% 5%,#123e4440,transparent 48%),radial-gradient(ellipse at 90% 90%,#18355a35,transparent 48%)}
+.vision-compact header{padding-right:40px}.vision-compact .canvas-shell>footer{padding-left:72px}.vision-compact .canvas-note{left:60px}@media(max-width:600px){.vision-compact header{padding-right:20px}.vision-compact .canvas-shell>footer{padding-left:62px}.vision-compact .canvas-note{left:14px;bottom:68px}}
+.vision-compact header{padding-right:76px}.vision-compact .canvas-shell>footer{padding-left:15px}.vision-compact .canvas-note{left:18px}@media(max-width:600px){.vision-compact header{padding-right:66px}.vision-compact .canvas-shell>footer{padding-left:15px}.vision-compact .canvas-note{left:14px;bottom:17px}}
+/* Monitor screen keeps only the supplied branding and the real topology. */
+body.focus-map header{padding-right:20px}
+body.focus-map header #addDevice,body.focus-map .header-right,body.focus-map header nav,
+body.focus-map .stats,body.focus-map .toolbar,body.focus-map .canvas-shell>footer,
+body.focus-map .zoom,body.focus-map .canvas-note,body.focus-map #monitorBand,
+body.focus-map #inspector,body.focus-map .vision-settings,
+body.focus-map #toast,body.focus-map .node .port{display:none!important}
+body.focus-map .workspace{padding:0;gap:0}
+body.focus-map .canvas-shell{border:0;border-radius:0;box-shadow:none}
+body.focus-map #canvas::after{display:none}

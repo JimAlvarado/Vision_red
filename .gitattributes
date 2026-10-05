@@ -1,0 +1,2 @@
+# La publicación compilada se guarda byte a byte, sin conversión de fin de línea
+outputs/** -text
