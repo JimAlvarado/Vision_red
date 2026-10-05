@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><DefaultItemExcludes>$(DefaultItemExcludes);wwwroot/**/*.gz;wwwroot/**/*.br</DefaultItemExcludes></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.90.1" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Update="datos\**" CopyToPublishDirectory="Never" />
+    <None Update="datos\**" CopyToPublishDirectory="Never" />
+    <Content Remove="ejemplos-correo\**" />
+    <Content Remove="MonitorRed.Panel.*.json" />
+  </ItemGroup>
+</Project>

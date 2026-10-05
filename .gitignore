@@ -1,14 +1,40 @@
-# Estado en vivo de cada servidor: nunca se versiona (el repo es público y un pull lo pisaría)
+# Solo estas rutas forman parte del proyecto versionado.
+/*
+!/.gitignore
+!/README.md
+!/outputs/
+/outputs/*
+!/outputs/MonitorRed.Panel/
+!/outputs/MonitorRed/
+/outputs/MonitorRed/*
+!/outputs/MonitorRed/*.cs
+!/outputs/MonitorRed/*.csproj
+!/outputs/MonitorRed/README.md
+!/work/
+/work/*
+!/work/tooling/
+/work/tooling/*
+!/work/tooling/Publicar-Vision.ps1
+!/work/tooling/activar-desarrollo.ps1
+
+# Estado privado y operativo: nunca se sube ni se reemplaza con pull.
 outputs/MonitorRed.Panel/datos/
 outputs/MonitorRed.Panel/logs/
 outputs/MonitorRed.Panel/notificaciones.json
+outputs/MonitorRed.Panel/ejemplos-correo/
 *.dpapi
-
-# Respaldos locales
+*.pfx
+*.p12
+*.pem
+*.key
 *.zip
+*.csv
+*.jsonl
+*.log
 
-# Compilación (para cuando se agregue src/ desde G15)
+# Herramientas locales, capturas y resultados de compilación.
 bin/
 obj/
 .vs/
 *.user
+outputs/MonitorRed.Panel/*.png
