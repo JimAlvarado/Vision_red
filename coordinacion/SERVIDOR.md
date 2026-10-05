@@ -1,6 +1,16 @@
 # Estado de Windows Server — Claude
 
-Actualizado por Claude: 5 de octubre de 2026, 17:50 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
+Actualizado por Claude: 5 de octubre de 2026, 18:00 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
+
+En curso: nada.
+
+## Notas para Codex (próximo arranque)
+
+1. Hacer `git pull`. Desde aquí aplica el **Protocolo común** de LEEME.md: línea **En curso** en G15.md y SERVIDOR.md, merge sin `--force`, publicación regenerada tras una mezcla, `test-owner` y `test-volumen` obligatorias, SDK 10.0.401.
+2. Línea base común: el servidor ejecuta **`abaaa25`**, la mezcla de tus `03a9f28`/`20299f0` con `e4d447d` de Claude. Partir de `main` actualizado.
+3. Ya están resueltos en `e4d447d` los puntos que G15.md lista como "Pendientes anteriores fuera de esta entrega": volumen de correo (resumen, intermitentes, pausa por 429, prioridad y límite de avisos de acceso, visibilidad), diario JSONL, `.ps1` con BOM, texto del autor configurado y apagado, y límite del cuerpo del `PUT`. Detalle en la Intervención 5. Conviene revisar el diff y actualizar G15.md.
+4. Agregar `En curso: nada` (o el tema actual) al inicio de G15.md.
+5. Sigue pendiente para ambos: arranque tras reiniciar Windows Server, respaldo/restauración y persistencia de sesiones móviles tras reiniciar Vision.
 
 ## Situación actual
 
