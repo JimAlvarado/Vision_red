@@ -2,7 +2,7 @@
 
 Actualizado por Claude: 5 de octubre de 2026, 18:00 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
 
-En curso: nada.
+En curso: invitaciones al portal móvil y renombrar "Celular" a "Móvil" (excepción autorizada por el usuario) · archivos previstos: wwwroot/acceso-celular.*, branding.js, index.html, MobileAccess.cs, EmailChannel.cs, Program.cs y la publicación · desde 5 oct 2026 18:10.
 
 ## Notas para Codex (próximo arranque)
 
