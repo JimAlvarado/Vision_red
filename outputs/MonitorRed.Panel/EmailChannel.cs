@@ -96,10 +96,7 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
         foreach (var value in addresses)
         {
             var address = value?.Trim() ?? "";
-            if (address.Length is < 3 or > 254 || address.Any(char.IsControl) ||
-                !System.Net.Mail.MailAddress.TryCreate(address, out var parsed) ||
-                !string.Equals(parsed.Address, address, StringComparison.OrdinalIgnoreCase) || !address.Contains('@') ||
-                !ValidDomain(parsed.Host))
+            if (!IsValidAddress(address))
                 throw new ArgumentException("Hay una dirección de correo inválida. Revisa la lista.");
             if (!recipients.Contains(address, StringComparer.OrdinalIgnoreCase)) recipients.Add(address);
         }
@@ -126,7 +123,12 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
         finally { sendGate.Release(); }
     }
 
-    // Requires a dotted domain such as empresa.com; rejects "usuario@empresa".
+    // A plain address with a dotted domain such as empresa.com; rejects "usuario@empresa" and display names.
+    public static bool IsValidAddress(string address) =>
+        address.Length is >= 3 and <= 254 && !address.Any(char.IsControl) && address.Contains('@') &&
+        System.Net.Mail.MailAddress.TryCreate(address, out var parsed) &&
+        string.Equals(parsed.Address, address, StringComparison.OrdinalIgnoreCase) && ValidDomain(parsed.Host);
+
     private static bool ValidDomain(string host) =>
         host.Contains('.') && !host.StartsWith('.') && !host.EndsWith('.') && !host.Contains("..");
 
@@ -197,44 +199,64 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
             try { token = await AcquireTokenAsync(cancellation); }
             catch (Exception ex) when (ex is MsalException or InvalidOperationException or HttpRequestException or CryptographicException)
             { return new("retry", "No se pudo autorizar el envío. Consultar la conexión de correo en Vision.", RetryAfterSeconds: 60); }
-            using var request = new HttpRequestMessage(HttpMethod.Post, "https://graph.microsoft.com/v1.0/me/sendMail");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
-            request.Headers.Add("client-request-id", Guid.NewGuid().ToString());
-            request.Content = JsonContent.Create(new
-            {
-                message = new
-                {
-                    subject = AlertMessage.Subject(notification.Subject),
-                    body = new { contentType = "HTML", content = notification.Message },
-                    from = new { emailAddress = new { address = settings.SenderAddress } },
-                    toRecipients = recipients.Select(address => new { emailAddress = new { address } }).ToArray()
-                },
-                saveToSentItems = true
-            });
-            try
-            {
-                using var response = await http.SendAsync(request, cancellation);
-                var providerId = response.Headers.TryGetValues("request-id", out var ids) ? ids.FirstOrDefault() : null;
-                if (response.StatusCode == HttpStatusCode.Accepted) return new("accepted", ProviderRequestId: providerId);
-                if ((int)response.StatusCode == 429)
-                {
-                    var after = response.Headers.RetryAfter?.Delta?.TotalSeconds ??
-                        (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow)?.TotalSeconds ?? 60;
-                    return new("retry", "Microsoft limitó temporalmente el envío.", providerId, (int)Math.Clamp(after, 5, 3600), Throttled: true);
-                }
-                if (response.StatusCode == HttpStatusCode.Unauthorized)
-                {
-                    forceRefresh = true;
-                    lock (authGate) authorization = new("error", Error: "Microsoft rechazó la sesión. Vuelve a autorizar el buzón.");
-                    return new("retry", "Microsoft rechazó la sesión de correo.", providerId, 60);
-                }
-                return new((int)response.StatusCode >= 500 ? "unknown" : "failed",
-                    $"Microsoft devolvió HTTP {(int)response.StatusCode}." + ((int)response.StatusCode >= 500 ? " Revisar Elementos enviados antes de repetir." : ""), providerId);
-            }
-            catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
-            { return new("unknown", "No se recibió confirmación del envío. Revisar Elementos enviados antes de repetir."); }
+            return await PostMailAsync(token, notification.Subject, notification.Message, recipients, cancellation);
         }
         finally { sendGate.Release(); }
+    }
+
+    // Manual messages from the local editor (mobile invitations); independent of the automatic channels.
+    public async Task<EmailDelivery> SendDirectAsync(string recipient, string subject, string html, CancellationToken cancellation)
+    {
+        await sendGate.WaitAsync(cancellation);
+        try
+        {
+            AuthenticationResult token;
+            try { token = await AcquireTokenAsync(cancellation); }
+            catch (Exception ex) when (ex is MsalException or InvalidOperationException or HttpRequestException or CryptographicException)
+            { return new("failed", "El buzón de Vision no está autorizado. Revisa Configuración → Correo."); }
+            return await PostMailAsync(token, subject, html, [recipient], cancellation);
+        }
+        finally { sendGate.Release(); }
+    }
+
+    private async Task<EmailDelivery> PostMailAsync(AuthenticationResult token, string subject, string html, string[] recipients, CancellationToken cancellation)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://graph.microsoft.com/v1.0/me/sendMail");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
+        request.Headers.Add("client-request-id", Guid.NewGuid().ToString());
+        request.Content = JsonContent.Create(new
+        {
+            message = new
+            {
+                subject = AlertMessage.Subject(subject),
+                body = new { contentType = "HTML", content = html },
+                from = new { emailAddress = new { address = settings.SenderAddress } },
+                toRecipients = recipients.Select(address => new { emailAddress = new { address } }).ToArray()
+            },
+            saveToSentItems = true
+        });
+        try
+        {
+            using var response = await http.SendAsync(request, cancellation);
+            var providerId = response.Headers.TryGetValues("request-id", out var ids) ? ids.FirstOrDefault() : null;
+            if (response.StatusCode == HttpStatusCode.Accepted) return new("accepted", ProviderRequestId: providerId);
+            if ((int)response.StatusCode == 429)
+            {
+                var after = response.Headers.RetryAfter?.Delta?.TotalSeconds ??
+                    (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow)?.TotalSeconds ?? 60;
+                return new("retry", "Microsoft limitó temporalmente el envío.", providerId, (int)Math.Clamp(after, 5, 3600), Throttled: true);
+            }
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                forceRefresh = true;
+                lock (authGate) authorization = new("error", Error: "Microsoft rechazó la sesión. Vuelve a autorizar el buzón.");
+                return new("retry", "Microsoft rechazó la sesión de correo.", providerId, 60);
+            }
+            return new((int)response.StatusCode >= 500 ? "unknown" : "failed",
+                $"Microsoft devolvió HTTP {(int)response.StatusCode}." + ((int)response.StatusCode >= 500 ? " Revisar Elementos enviados antes de repetir." : ""), providerId);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
+        { return new("unknown", "No se recibió confirmación del envío. Revisar Elementos enviados antes de repetir."); }
     }
 
     public async Task<object> StatusAsync(SendingLimit? limit = null)

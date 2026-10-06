@@ -20,6 +20,9 @@ if (!File.Exists(monitorSettingsPath))
 builder.Services.AddSingleton<MonitorState>();
 builder.Services.AddSingleton(new EventRepository(monitorDataDir));
 builder.Services.AddSingleton(provider => new MobileAccess(monitorDataDir,provider.GetRequiredService<EventRepository>(),provider.GetRequiredService<OwnerNotifications>()));
+builder.Services.AddSingleton(provider => new MobileInvitations(monitorDataDir, provider.GetRequiredService<MobileAccess>(),
+    provider.GetRequiredService<VpnMobileNetwork>(), provider.GetRequiredService<EmailChannel>(),
+    provider.GetRequiredService<NotificationOutbox>(), provider.GetRequiredService<EventRepository>()));
 builder.Services.AddSingleton(provider => new OwnerNotifications(monitorDataDir, provider.GetRequiredService<NotificationOutbox>()));
 builder.Services.AddSingleton(provider => new EmailChannel(monitorDataDir,
     provider.GetRequiredService<IHostApplicationLifetime>(), provider.GetRequiredService<OwnerNotifications>()));
@@ -91,7 +94,7 @@ app.Use(async (context, next) =>
         if (context.Request.Headers["X-Topology-Editor"] != "1")
         { context.Response.StatusCode = 403; return; }
         // Small configuration bodies: limit before model binding reads them, including chunked requests.
-        if (context.Request.Path.StartsWithSegments("/api/email"))
+        if (context.Request.Path.StartsWithSegments("/api/email") || context.Request.Path.StartsWithSegments("/api/mobile"))
         {
             if (context.Request.ContentLength > 16384) { context.Response.StatusCode = 413; return; }
             if (context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } bodyLimit) bodyLimit.MaxRequestBodySize = 16384;
@@ -148,12 +151,14 @@ app.MapPut("/api/display-settings", async (DisplaySettings settings) =>
     }
     finally { gate.Release(); }
 });
-app.MapGet("/api/mobile/access", (MobileAccess mobile, VpnMobileNetwork network, HttpContext context) =>
+app.MapGet("/api/mobile/access", (MobileAccess mobile, MobileInvitations invitations, VpnMobileNetwork network, HttpContext context) =>
 {
     context.Response.Headers.CacheControl = "no-store";
-    return Results.Ok(new { code = mobile.LocalAccessCode, codes = mobile.LocalAccessCodes, accesses = mobile.AccessStatus(), url = network.Url, listeningOnVpn = network.ListeningOnVpn, mode = "private-vpn" });
+    return Results.Ok(new { code = mobile.LocalAccessCode, codes = mobile.LocalAccessCodes, accesses = mobile.AccessStatus(), invitations = invitations.Snapshot(), url = network.Url, listeningOnVpn = network.ListeningOnVpn, mode = "private-vpn" });
 });
 app.MapPost("/api/mobile/access/{slot:int}/release", (int slot, MobileAccess mobile) => mobile.Release(slot));
+app.MapPost("/api/mobile/invite", (MobileInvitationRequest input, MobileInvitations invitations, HttpContext context) =>
+    invitations.SendAsync(input, context.RequestAborted));
 app.MapPost("/api/mobile/login", (HttpContext context, MobileLogin input, MobileAccess mobile) => mobile.Login(context, input));
 app.MapPost("/api/mobile/logout", (HttpContext context, MobileAccess mobile) => mobile.Logout(context));
 app.MapGet("/api/mobile/overview", (NotificationOutbox outbox, EmailChannel email) =>

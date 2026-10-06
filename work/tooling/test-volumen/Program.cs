@@ -198,6 +198,52 @@ var t0 = new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero);
     Check(!channel.AutomaticAlertsEnabled, "Interruptor: desactiva el envío");
 }
 
+// 12. Invitaciones al portal móvil: validaciones antes de enviar; sin sesión de correo autorizada no sale nada.
+{
+    var dir = Path.Combine(root, "invite"); Directory.CreateDirectory(dir);
+    File.WriteAllBytes(Path.Combine(dir, "mobile-access.dpapi"), System.Security.Cryptography.ProtectedData.Protect(
+        System.Text.Encoding.UTF8.GetBytes("ABC123DEF456"), null, System.Security.Cryptography.DataProtectionScope.CurrentUser));
+    var localIp = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+        .Where(n => n.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up)
+        .SelectMany(n => n.GetIPProperties().UnicastAddresses).Select(a => a.Address)
+        .FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && a.ToString() is var s &&
+            (s.StartsWith("10.") || s.StartsWith("192.168.") || (s.StartsWith("172.") && int.Parse(s.Split('.')[1]) is >= 16 and <= 31)));
+    void Vpn(string address) => File.WriteAllText(Path.Combine(dir, "mobile-vpn-settings.json"), $"{{\"vpnAddress\":\"{address}\",\"allowedSubnet\":\"10.250.0.0/24\"}}");
+    File.WriteAllText(Path.Combine(dir, "email-settings.json"), JsonSerializer.Serialize(new EmailSettings("microsoft-graph", "organizational-device-code",
+        Guid.NewGuid().ToString(), "sender@example.com", "test@example.com", "no-send", true, ["uno@example.com"]), new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+    var events = new EventRepository(dir);
+    var outbox = new NotificationOutbox(Path.Combine(dir, "alertas-pendientes.json"), events);
+    var mobile = new MobileAccess(dir, events);
+    using var channel = new EmailChannel(dir, new Lifetime());
+    int Status(Microsoft.AspNetCore.Http.IResult result) => (result as Microsoft.AspNetCore.Http.IStatusCodeHttpResult)?.StatusCode ?? 0;
+    Vpn("10.250.0.1");
+    var offline = new MobileInvitations(dir, mobile, new VpnMobileNetwork(dir), channel, outbox, events);
+    Check(Status(await offline.SendAsync(new("usuario@empresa", 2), CancellationToken.None)) == 400, "Invitación: rechaza un correo sin dominio completo");
+    Check(Status(await offline.SendAsync(new("persona@empresa.com", 9), CancellationToken.None)) == 400, "Invitación: rechaza un código inexistente");
+    var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+    context.Connection.RemoteIpAddress = System.Net.IPAddress.Loopback; context.Request.Headers.UserAgent = "Android";
+    mobile.Login(context, new MobileLogin(mobile.CodeForSlot(1)));
+    Check(mobile.SlotInUse(1) && Status(await offline.SendAsync(new("persona@empresa.com", 1), CancellationToken.None)) == 409, "Invitación: no envía un código en uso");
+    Check(Status(await offline.SendAsync(new("persona@empresa.com", 2), CancellationToken.None)) == 409, "Invitación: no envía si Vision no escucha en la VPN");
+    if (localIp is not null)
+    {
+        Vpn(localIp.ToString());
+        var online = new MobileInvitations(dir, mobile, new VpnMobileNetwork(dir), channel, outbox, events);
+        outbox.CompleteBatch([], new EmailDelivery("retry", "Límite", null, 120, Throttled: true), DateTimeOffset.UtcNow);
+        Check(Status(await online.SendAsync(new("persona@empresa.com", 2), CancellationToken.None)) == 503, "Invitación: respeta la pausa por límite de Microsoft");
+        var other = Path.Combine(dir, "q2"); Directory.CreateDirectory(other);
+        var unauthorized = new MobileInvitations(dir, mobile, new VpnMobileNetwork(dir), channel, new NotificationOutbox(Path.Combine(other, "alertas-pendientes.json")), events);
+        Check(Status(await unauthorized.SendAsync(new("persona@empresa.com", 2), CancellationToken.None)) == 503, "Invitación: sin buzón autorizado no envía y lo informa");
+    }
+    else Console.WriteLine("OMITIDA Invitación: este equipo no tiene IPv4 privada para simular la VPN");
+    Check(offline.Snapshot().Length == 0, "Invitación: no registra invitaciones que no salieron");
+    var html = MobileInvitations.Compose("AB<12", "http://10.0.0.1:5081/");
+    Check(html.Contains("AB&lt;12") && !html.Contains("AB<12") && html.Contains("http://10.0.0.1:5081/") && html.Contains("un solo dispositivo"),
+        "Invitación: el correo incluye código, enlace e instrucciones, codificados como texto");
+    Check(EmailChannel.IsValidAddress("persona@empresa.com.mx") && !EmailChannel.IsValidAddress("Persona <persona@empresa.com>") &&
+        !EmailChannel.IsValidAddress("persona@empresa"), "Invitación: validación de correo compartida con destinatarios");
+}
+
 Console.WriteLine(failures == 0 ? "\nTodas las pruebas pasaron. Sin correos reales." : $"\n{failures} pruebas fallaron.");
 return failures == 0 ? 0 : 1;
 

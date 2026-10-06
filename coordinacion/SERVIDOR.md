@@ -1,13 +1,13 @@
 # Estado de Windows Server — Claude
 
-Actualizado por Claude: 5 de octubre de 2026, 18:00 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
+Actualizado por Claude: 5 de octubre de 2026, 18:20 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
 
-En curso: invitaciones al portal móvil y renombrar "Celular" a "Móvil" (excepción autorizada por el usuario) · archivos previstos: wwwroot/acceso-celular.*, branding.js, index.html, MobileAccess.cs, EmailChannel.cs, Program.cs y la publicación · desde 5 oct 2026 18:10.
+En curso: nada.
 
 ## Notas para Codex (próximo arranque)
 
 1. Hacer `git pull`. Desde aquí aplica el **Protocolo común** de LEEME.md: línea **En curso** en G15.md y SERVIDOR.md, merge sin `--force`, publicación regenerada tras una mezcla, `test-owner` y `test-volumen` obligatorias, SDK 10.0.401.
-2. Línea base común: el servidor ejecuta **`abaaa25`**, la mezcla de tus `03a9f28`/`20299f0` con `e4d447d` de Claude. Partir de `main` actualizado.
+2. Línea base común: el servidor ejecuta la aplicación del commit que acompaña la **Intervención 7** (invitaciones al portal móvil), construida sobre `abaaa25`. Partir de `main` actualizado.
 3. Ya están resueltos en `e4d447d` los puntos que G15.md lista como "Pendientes anteriores fuera de esta entrega": volumen de correo (resumen, intermitentes, pausa por 429, prioridad y límite de avisos de acceso, visibilidad), diario JSONL, `.ps1` con BOM, texto del autor configurado y apagado, y límite del cuerpo del `PUT`. Detalle en la Intervención 5. Conviene revisar el diff y actualizar G15.md.
 4. Agregar `En curso: nada` (o el tema actual) al inicio de G15.md.
 5. Sigue pendiente para ambos: arranque tras reiniciar Windows Server, respaldo/restauración y persistencia de sesiones móviles tras reiniciar Vision.
@@ -15,8 +15,20 @@ En curso: invitaciones al portal móvil y renombrar "Celular" a "Móvil" (excepc
 ## Situación actual
 
 - Ruta: `C:\Proyectos\Vision_red`; servicio: `Vision` (automático, cuenta de dominio del usuario), `Running`.
-- Aplicación ejecutada: **`abaaa25`** (integración de los accesos móviles exclusivos de Codex con las correcciones de la Intervención 5), instalada a petición del usuario (Intervención 6). HEAD local `abaaa25`, sin cambios locales.
-- Accesos móviles: 4 códigos sin cambios, los 4 disponibles al cierre (los celulares deben volver a introducir su código una vez).
+- Aplicación ejecutada: **invitaciones al portal móvil** (Intervención 7, compilada en el servidor por excepción autorizada), sobre `abaaa25`. El commit que la contiene acompaña este registro.
+- Accesos móviles: 4 códigos sin cambios, los 4 libres al cierre; sin invitaciones enviadas todavía. El apartado se llama ahora **"Móvil"**.
+
+## Intervención 7 — 5 de octubre de 2026, 18:10–18:20: invitaciones al portal móvil (excepción autorizada)
+
+Pedido del usuario, limitado a: invitar por correo desde el apartado de celular con un código libre, renombrar el apartado a "Móvil" y mostrar los códigos como "En uso" o "Libre". Se publicó el aviso **En curso** antes de empezar (`8ff0999`).
+
+- **Interfaz** (`acceso-celular.html/.js`, `correo.css`): título y encabezado "Vision móvil"; estado de cada código "Libre" o "En uso · dispositivo", más "Invitación enviada a … el …" si corresponde. Sección **Invitar a una persona**: correo, lista solo con códigos libres (prefiere uno nunca enviado), aviso si ese código ya se envió a otra persona, confirmación y resultado. El menú del mapa (`index.html`) y el menú de configuración (`branding.js`) dicen "Móvil". La URL `acceso-celular.html` no cambió.
+- **Servidor**: `MobileInvitations.cs` (nuevo) con `POST /api/mobile/invite {email, slot}`, solo editor local (403 por móvil o sin cabecera). Valida el correo (dominio con punto, igual que destinatarios), que el código exista y esté **libre** (409 si está en uso), que Vision escuche en la VPN y que no haya pausa por límite de Microsoft. Envía con `EmailChannel.SendDirectAsync` (el envío a Graph se extrajo a `PostMailAsync`, compartido con las alertas). Un 429 o una aceptación actualizan la pausa general compartida con las alertas. `GET /api/mobile/access` agrega `invitations`. `MobileAccess` solo suma `SlotCount`, `CodeForSlot` y `SlotInUse`; la lógica de sesiones de Codex no cambió.
+- **Privacidad**: la última invitación por código (correo y fecha) se guarda en `datos/mobile-invitations.json`, visible solo en el editor local. El historial, que también se consulta desde el móvil, registra `mobile_invitation_sent/failed` con el número de código, sin correo ni código.
+- **Correo de invitación**: asunto `[VISION-APODACA] Invitación al portal móvil de Vision`; código, enlace VPN, pasos (VPN, abrir enlace, escribir código) y reglas (un dispositivo a la vez, cerrar sesión o pedir liberación, cookies, no compartir). Todo el contenido variable se codifica como HTML.
+- **Pruebas**: `test-volumen` con 9 comprobaciones nuevas de invitaciones (correo inválido, código inexistente, código en uso, VPN inactiva, pausa por límite, sin buzón autorizado no envía, no registra fallidas, contenido codificado, validación compartida): 40/40. `test-owner` pasa. `node --check` correcto en los JS modificados.
+- **Instalación**: publicación con 14 archivos distintos (aplicación y comprimidos de las 5 páginas tocadas); detener (UAC) → respaldo de `datos` y de los 14 archivos anteriores → copia verificada → iniciar (UAC). `datos` intacto, códigos idénticos, correo sin cambios, 0 errores. En el servicio: invitación por móvil o sin cabecera → 403; correo sin dominio y código inexistente → 400; cuerpo de 20 KB → 413. Captura con Edge headless: la página se ve correctamente.
+- **No probado**: el envío real de una invitación (lo hará el usuario desde la página).
 - Correo: buzón institucional (`organizational-device-code`) autorizado. Alertas de red automáticas **encendidas** (decisión del usuario). Avisos al autor configurados y **apagados**. 2 destinatarios (el usuario editó la lista a las 16:06).
 - Monitoreo `operating`, 19 equipos (el usuario agregó y retiró un equipo entre 17:27 y 17:28; revisión 176).
 
@@ -57,12 +69,6 @@ En curso: invitaciones al portal móvil y renombrar "Celular" a "Móvil" (excepc
 ### No probado
 
 - Un 429 real de Microsoft y un resumen real con varios equipos (requieren una caída real o forzarla). El próximo cambio múltiple de red generará el primer resumen real.
-
-## Intervención 4 — 5 de octubre de 2026, 15:38–16:08: migración al correo institucional
-
-- Scripts de Codex ejecutados como copias con BOM (corregido en Intervención 5); buzón institucional autorizado desde la cuenta del servicio; una sola prueba aceptada y recibida. Canales apagados por el script.
-- 16:05: el usuario pidió encender las alertas de red; se enviaron los 6 avisos en espera (aceptados al primer intento, recibidos).
-- 15:51–15:56: pérdida de alcance a la red de equipos desde el servidor (ping y traza fallan fuera del servidor); problema de red, no de Vision.
 
 ## Pendientes
 

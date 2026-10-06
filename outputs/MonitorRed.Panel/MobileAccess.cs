@@ -104,6 +104,13 @@ public sealed class MobileAccess
                     connectedAtUtc = session?.ConnectedAtUtc, device = session?.Device };
             }).ToArray();
     }
+    // Slots are numbered from 1, as shown in the local editor.
+    public int SlotCount => accessCodes.Length;
+    public string? CodeForSlot(int slot) => slot >= 1 && slot <= accessCodes.Length ? accessCodes[slot - 1] : null;
+    public bool SlotInUse(int slot)
+    {
+        lock (sessionGate) return sessions.ContainsKey(slot - 1);
+    }
     public IResult Release(int slot)
     {
         if (slot < 1 || slot > accessCodes.Length) return Results.BadRequest(new { error = "Acceso inválido." });
