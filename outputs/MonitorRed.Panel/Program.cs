@@ -154,7 +154,7 @@ app.MapPut("/api/display-settings", async (DisplaySettings settings) =>
 app.MapGet("/api/mobile/access", (MobileAccess mobile, MobileInvitations invitations, VpnMobileNetwork network, HttpContext context) =>
 {
     context.Response.Headers.CacheControl = "no-store";
-    return Results.Ok(new { code = mobile.LocalAccessCode, codes = mobile.LocalAccessCodes, accesses = mobile.AccessStatus(), invitations = invitations.Snapshot(), url = network.Url, listeningOnVpn = network.ListeningOnVpn, mode = "private-vpn" });
+    return Results.Ok(new { code = mobile.LocalAccessCode, codes = mobile.LocalAccessCodes, accesses = mobile.AccessStatus(), invitations = invitations.Snapshot(), url = network.Url, listeningOnVpn = network.ListeningOnVpn, allowedSubnets = network.AllowedSubnets, mode = "private-vpn" });
 });
 app.MapPost("/api/mobile/access/{slot:int}/release", (int slot, MobileAccess mobile) => mobile.Release(slot));
 app.MapPost("/api/mobile/invite", (MobileInvitationRequest input, MobileInvitations invitations, HttpContext context) =>

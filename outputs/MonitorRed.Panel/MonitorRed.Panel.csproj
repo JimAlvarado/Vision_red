@@ -6,8 +6,8 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
   </ItemGroup>
   <ItemGroup>
-    <Content Update="datos\**" CopyToPublishDirectory="Never" />
-    <None Update="datos\**" CopyToPublishDirectory="Never" />
+    <Content Update="datos\**" CopyToPublishDirectory="Never" CopyToOutputDirectory="Never" />
+    <None Update="datos\**" CopyToPublishDirectory="Never" CopyToOutputDirectory="Never" />
     <Content Remove="ejemplos-correo\**" />
     <Content Remove="MonitorRed.Panel.*.json" />
   </ItemGroup>

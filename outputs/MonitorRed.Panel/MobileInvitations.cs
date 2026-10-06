@@ -28,7 +28,7 @@ public sealed class MobileInvitations(string dataDir, MobileAccess access, VpnMo
         if (access.SlotInUse(slot))
             return Results.Conflict(new { error = $"El código {slot} está en uso. Elige un código libre o libera ese acceso." });
         if (!network.ListeningOnVpn)
-            return Results.Conflict(new { error = "Vision no está escuchando en la VPN; la persona invitada no podría entrar. Revisa la VPN y reinicia Vision." });
+            return Results.Conflict(new { error = "Vision no está escuchando en la dirección de acceso móvil; la persona invitada no podría entrar. Revisa la red y reinicia Vision." });
         var now = DateTimeOffset.UtcNow;
         if (outbox.Limit is { PausedUntilUtc: { } until } && until > now)
             return Results.Json(new { error = $"Microsoft limitó el envío del buzón. Intenta después de las {AlertMessage.FormatTime(until)}." }, statusCode: 503);
@@ -74,7 +74,7 @@ public sealed class MobileInvitations(string dataDir, MobileAccess access, VpnMo
             "<table style=\"width:100%;border-collapse:collapse;font-size:15px\" cellpadding=\"10\" border=\"1\">" +
             $"<tr><td>Código de acceso</td><td><b style=\"font-size:22px;letter-spacing:3px;font-family:Consolas,monospace\">{Encode(code)}</b></td></tr>" +
             $"<tr><td>Dirección</td><td><a href=\"{Encode(url)}\">{Encode(url)}</a></td></tr></table>" +
-            "<h2 style=\"font-size:18px\">Cómo entrar</h2><ol style=\"line-height:1.7\"><li>Conecta tu celular o tablet a la VPN corporativa.</li><li>Abre la dirección en el navegador.</li><li>Escribe el código de acceso.</li></ol>" +
+            "<h2 style=\"font-size:18px\">Cómo entrar</h2><ol style=\"line-height:1.7\"><li>Conecta tu celular o tablet a la red de Arzyz o a la VPN corporativa.</li><li>Abre la dirección en el navegador.</li><li>Escribe el código de acceso.</li></ol>" +
             "<h2 style=\"font-size:18px\">Importante</h2><ul style=\"line-height:1.7\"><li>El código funciona en un solo dispositivo o navegador a la vez y no caduca.</li>" +
             "<li>Para usarlo en otro dispositivo, cierra la sesión en el anterior o pide al administrador que libere el acceso.</li>" +
             "<li>Si borras las cookies del navegador o usas modo privado, tendrás que pedir que se libere.</li><li>No compartas este código.</li></ul>" +

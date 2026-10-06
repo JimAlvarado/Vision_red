@@ -77,6 +77,8 @@ async function loadAccess() {
     if (data.mode === 'private-vpn' && privateHost && url.protocol === 'http:' && url.port === '5081' && url.pathname === '/' && !url.username && !url.password) {
       link.textContent = data.url; link.href = data.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
     } else { link.textContent = 'Acceso VPN pendiente de configuración.'; link.removeAttribute('href'); }
+    const networks = data.allowedSubnets || [];
+    document.getElementById('networks').textContent = networks.length ? 'Redes autorizadas: ' + networks.join(', ') : '';
     document.getElementById('vpnState').textContent = data.listeningOnVpn ? 'Vision está escuchando en la interfaz VPN. Confirma el acceso desde el dispositivo móvil.' : 'La interfaz VPN no estaba disponible al iniciar Vision. Conecta la VPN y reinicia Vision.';
     signature = nextSignature;
   } catch { document.getElementById('vpnState').textContent = 'No se pudo actualizar el estado de los accesos.'; }

@@ -3,7 +3,8 @@ using System.Text.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 
-var root = Path.Combine(Directory.GetCurrentDirectory(), "fixtures", Guid.NewGuid().ToString("N"));
+// Always under the test build folder, never in the panel folder that gets published.
+var root = Path.Combine(AppContext.BaseDirectory, "fixtures", Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
 var failures = 0;
 void Check(bool condition, string description)
@@ -242,6 +243,28 @@ var t0 = new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero);
         "Invitación: el correo incluye código, enlace e instrucciones, codificados como texto");
     Check(EmailChannel.IsValidAddress("persona@empresa.com.mx") && !EmailChannel.IsValidAddress("Persona <persona@empresa.com>") &&
         !EmailChannel.IsValidAddress("persona@empresa"), "Invitación: validación de correo compartida con destinatarios");
+}
+
+// 13. Redes autorizadas para la consulta móvil: varias subredes (VPN y VLAN) y el formato anterior de una sola.
+{
+    var dir = Path.Combine(root, "redes"); Directory.CreateDirectory(dir);
+    VpnMobileNetwork Network(string json) { File.WriteAllText(Path.Combine(dir, "mobile-vpn-settings.json"), json); return new VpnMobileNetwork(dir); }
+    bool Rejected(string json) { try { Network(json); return false; } catch (InvalidDataException) { return true; } }
+    System.Net.IPAddress ip(string value) => System.Net.IPAddress.Parse(value);
+    var many = Network("{\"vpnAddress\":\"10.250.0.1\",\"allowedSubnets\":[\"10.20.30.0/24\",\"192.168.50.0/24\"]}");
+    Check(many.Allows(ip("10.20.30.7")) && many.Allows(ip("192.168.50.28")) && many.AllowedSubnets.Count == 2,
+        "Redes: acepta clientes de la VPN y de la VLAN configuradas");
+    Check(!many.Allows(ip("192.168.51.28")) && !many.Allows(ip("10.20.31.7")) && !many.Allows(ip("8.8.8.8")),
+        "Redes: rechaza clientes fuera de las redes autorizadas");
+    Check(many.Allows(ip("192.168.50.28").MapToIPv6()) && many.Allows(System.Net.IPAddress.Loopback), "Redes: IPv4 dentro de IPv6 y equipo local");
+    var legacy = Network("{\"vpnAddress\":\"10.250.0.1\",\"allowedSubnet\":\"10.20.30.0/24\"}");
+    Check(legacy.Allows(ip("10.20.30.9")) && !legacy.Allows(ip("192.168.50.28")) && legacy.AllowedSubnets.Count == 1,
+        "Redes: el formato anterior de una sola red sigue funcionando");
+    Check(Rejected("{\"vpnAddress\":\"10.250.0.1\",\"allowedSubnets\":[\"10.20.30.0/24\",\"8.8.8.0/24\"]}") &&
+        Rejected("{\"vpnAddress\":\"10.250.0.1\",\"allowedSubnets\":[\"10.0.0.0/8\"]}") &&
+        Rejected("{\"vpnAddress\":\"10.250.0.1\",\"allowedSubnets\":[]}") &&
+        Rejected("{\"vpnAddress\":\"10.250.0.1\",\"allowedSubnets\":[\"texto\"]}"),
+        "Redes: rechaza subredes públicas, demasiado amplias, vacías o inválidas");
 }
 
 Console.WriteLine(failures == 0 ? "\nTodas las pruebas pasaron. Sin correos reales." : $"\n{failures} pruebas fallaron.");
