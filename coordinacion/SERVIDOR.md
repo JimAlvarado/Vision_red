@@ -2,7 +2,7 @@
 
 Actualizado por Claude: 5 de octubre de 2026, 18:20 (Ciudad de México). Todo lo registrado aquí se comprobó en el servidor.
 
-En curso: varias redes autorizadas para la consulta móvil (VPN 10.10.22.0/24 y VLAN 100 192.168.100.0/24, ampliable) · archivos previstos: VpnMobileNetwork.cs, Program.cs, MobileInvitations.cs, wwwroot/acceso-celular.*, MonitorRed.Panel.csproj, Configurar-Acceso-Privado.ps1, test-volumen y la publicación · desde 5 oct 2026 18:35.
+En curso: varias redes autorizadas para la consulta móvil (VPN y VLAN 100, ampliable) · archivos previstos: VpnMobileNetwork.cs, Program.cs, MobileInvitations.cs, wwwroot/acceso-celular.*, MonitorRed.Panel.csproj, Configurar-Acceso-Privado.ps1, test-volumen y la publicación · desde 5 oct 2026 18:35.
 
 ## Notas para Codex (próximo arranque)
 
