@@ -1,6 +1,10 @@
-# Coordinación de Vision: Codex y Claude
+# Coordinación de Vision: Codex G15 y Codex Server
 
 Esta carpeta es el punto de intercambio acordado por el usuario. Se comparte mediante GitHub; cada asistente la consulta y actualiza cuando el usuario le encarga trabajo. No hay comunicación automática entre chats.
+
+## Regla vigente — 7 de octubre de 2026
+
+El proyecto se modifica y se prepara en G15; la ejecución operativa se realiza en Server. Toda entrega y todo reporte entre ambos pasan por Git, en la rama main del repositorio https://github.com/JimAlvarado/Vision_red.git. Codex G15 mantiene G15.md y Codex Server mantiene SERVIDOR.md. Esta regla sustituye las referencias anteriores a Claude y a desarrollo en el servidor; las intervenciones históricas se conservan como registro.
 
 ## Lectura inicial
 
@@ -11,8 +15,7 @@ Esta carpeta es el punto de intercambio acordado por el usuario. Se comparte med
 ## Responsabilidades y rutas
 
 - Codex desarrolla y compila en G15: `D:\Proyectos\Vision_red`. Panel en `outputs/MonitorRed.Panel`, motor en `outputs/MonitorRed`, herramientas en `work/tooling`.
-- Entorno de prueba autorizado en G15: `D:\Proyectos\Vision_red server`. Es una copia local de prueba, no el servidor real. No enviar su rama ni sus datos.
-- Claude aplica y verifica en Windows Server: `C:\Proyectos\Vision_red`. Servicio de Windows: `Vision`. Ejecutable previsto en `outputs/MonitorRed.Panel`; comprobar la ruta registrada antes de operaciones de instalación o limpieza.
+- Codex Server aplica y verifica en Windows Server: `C:\Proyectos\Vision_red`. Servicio de Windows: `Vision`. Ejecutable previsto en `outputs/MonitorRed.Panel`; comprobar la ruta registrada antes de operaciones de instalación o limpieza.
 - Código fuente y publicación compilada se versionan juntos. El servidor utiliza la publicación autocontenida; no necesita compilar.
 
 ## Actualizar el servidor
@@ -24,7 +27,7 @@ Un commit que solo modifica coordinación no exige reiniciar el servicio. Distin
 ## Qué escribe cada asistente
 
 - Codex mantiene G15.md: último cambio preparado, commit de aplicación, pruebas, entrega y pendientes.
-- Claude mantiene SERVIDOR.md: fecha de aplicación, commit de aplicación ejecutado, HEAD del repositorio, verificaciones y problemas. Su registro debe basarse en comprobaciones del servidor, no en inferencias.
+- Codex Server mantiene SERVIDOR.md: fecha de aplicación, commit de aplicación ejecutado, HEAD del repositorio, verificaciones y problemas. Su registro debe basarse en comprobaciones del servidor, no en inferencias.
 - Conservar la estructura breve y reemplazar el resumen anterior. Incluir como máximo tres entradas recientes por archivo. Si falta un dato, escribir "pendiente de verificar".
 - Ambos deben avisar al usuario antes de cada push. Publicar el estado al finalizar el trabajo autorizado; no enviar mensajes a otros chats sin autorización del usuario.
 
@@ -63,7 +66,7 @@ Acordado por el usuario después de que Codex y Claude modificaran el mismo cód
 
 ### Servidor
 
-- Claude solo modifica código en el servidor si el usuario lo autoriza expresamente. En ese caso usa el aviso **En curso** y lo registra como excepción en SERVIDOR.md.
+- Codex Server recibe las entregas por Git, las ejecuta y verifica, y registra los resultados en SERVIDOR.md. Los cambios de código y scripts se realizan en G15 y se entregan por Git.
 - Los archivos que crea la aplicación en `datos` (por ejemplo `correo-limite.json` y `mobile-sessions.dpapi`) forman parte de los respaldos y nunca se suben a Git.
 
 ## Información que queda fuera de Git
