@@ -29,7 +29,7 @@ Un commit que solo modifica coordinación no exige reiniciar el servicio. Distin
 - Codex mantiene G15.md: último cambio preparado, commit de aplicación, pruebas, entrega y pendientes.
 - Codex Server mantiene SERVIDOR.md: fecha de aplicación, commit de aplicación ejecutado, HEAD del repositorio, verificaciones y problemas. Su registro debe basarse en comprobaciones del servidor, no en inferencias.
 - Conservar la estructura breve y reemplazar el resumen anterior. Incluir como máximo tres entradas recientes por archivo. Si falta un dato, escribir "pendiente de verificar".
-- Ambos deben avisar al usuario antes de cada push. Publicar el estado al finalizar el trabajo autorizado; no enviar mensajes a otros chats sin autorización del usuario.
+- Ambos deben preguntar al usuario antes de cada push y esperar su aprobación explícita. Aplica siempre, también a avisos y reportes de coordinación; un aviso no sustituye el permiso. Preparar el estado al finalizar el trabajo autorizado y publicarlo solo tras aprobación; no enviar mensajes a otros chats sin autorización del usuario.
 
 ## Protocolo común desde el 5 de octubre de 2026
 
@@ -42,7 +42,7 @@ Acordado por el usuario después de que Codex y Claude modificaran el mismo cód
 
 ### Aviso de trabajo en curso (evita dos versiones del mismo código)
 
-- Antes de modificar código fuente, publicación compilada o scripts, escribir en el archivo propio (G15.md o SERVIDOR.md), al inicio: `En curso: <tema> · archivos previstos · desde <fecha y hora>`. Hacer commit y push de ese aviso **antes** de empezar, avisando al usuario.
+- Antes de modificar código fuente, publicación compilada o scripts, escribir en el archivo propio (G15.md o SERVIDOR.md), al inicio: `En curso: <tema> · archivos previstos · desde <fecha y hora>`. Preparar el aviso local **antes** de empezar. Con encargo del usuario, preparar los cambios y pruebas en G15 para su revisión; preguntar si autoriza subirlos y esperar aprobación explícita antes de cada push. La aprobación se pide sobre una entrega concreta, incluidos sus avisos de coordinación.
 - Si el otro tiene un **En curso** abierto, no tocar esos archivos: preguntar al usuario. Coordinación sí puede editarse.
 - Al entregar, sustituir la línea por `En curso: nada`.
 
@@ -51,7 +51,7 @@ Acordado por el usuario después de que Codex y Claude modificaran el mismo cód
 1. `git fetch` y `git merge origin/main`. No reescribir commits publicados (`rebase`, `--force`).
 2. Resolver el código fuente conservando ambos cambios.
 3. Nunca elegir el `.dll`, `.exe`, `.pdb`, `staticwebassets.endpoints.json`, `.gz` ni `.br` de un lado: regenerar la publicación desde el código mezclado.
-4. Ejecutar las pruebas obligatorias, hacer commit de la mezcla, registrar en el archivo propio y hacer push.
+4. Ejecutar las pruebas obligatorias, hacer commit de la mezcla, registrar en el archivo propio y pedir aprobación explícita antes de hacer push.
 
 ### Compilación idéntica en G15 y en el servidor
 
