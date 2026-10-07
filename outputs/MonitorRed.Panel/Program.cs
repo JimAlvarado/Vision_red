@@ -22,7 +22,7 @@ builder.Services.AddSingleton(new EventRepository(monitorDataDir));
 builder.Services.AddSingleton(provider => new MobileAccess(monitorDataDir,provider.GetRequiredService<EventRepository>(),provider.GetRequiredService<OwnerNotifications>()));
 builder.Services.AddSingleton(provider => new MobileInvitations(monitorDataDir, provider.GetRequiredService<MobileAccess>(),
     provider.GetRequiredService<VpnMobileNetwork>(), provider.GetRequiredService<EmailChannel>(),
-    provider.GetRequiredService<NotificationOutbox>(), provider.GetRequiredService<EventRepository>()));
+    provider.GetRequiredService<NotificationOutbox>(), provider.GetRequiredService<EventRepository>(), provider.GetRequiredService<ILogger<MobileInvitations>>()));
 builder.Services.AddSingleton(provider => new OwnerNotifications(monitorDataDir, provider.GetRequiredService<NotificationOutbox>()));
 builder.Services.AddSingleton(provider => new EmailChannel(monitorDataDir,
     provider.GetRequiredService<IHostApplicationLifetime>(), provider.GetRequiredService<OwnerNotifications>()));
@@ -154,7 +154,7 @@ app.MapPut("/api/display-settings", async (DisplaySettings settings) =>
 app.MapGet("/api/mobile/access", (MobileAccess mobile, MobileInvitations invitations, VpnMobileNetwork network, HttpContext context) =>
 {
     context.Response.Headers.CacheControl = "no-store";
-    return Results.Ok(new { code = mobile.LocalAccessCode, codes = mobile.LocalAccessCodes, accesses = mobile.AccessStatus(), invitations = invitations.Snapshot(), url = network.Url, listeningOnVpn = network.ListeningOnVpn, allowedSubnets = network.AllowedSubnets, mode = "private-vpn" });
+    return Results.Ok(new { code = mobile.LocalAccessCode, codes = mobile.LocalAccessCodes, accesses = mobile.AccessStatus(), invitations = invitations.Snapshot(), invitationReceipts = invitations.Receipts(), url = network.Url, listeningOnVpn = network.ListeningOnVpn, allowedSubnets = network.AllowedSubnets, mode = "private-vpn" });
 });
 app.MapPost("/api/mobile/access/{slot:int}/release", (int slot, MobileAccess mobile) => mobile.Release(slot));
 app.MapPost("/api/mobile/invite", (MobileInvitationRequest input, MobileInvitations invitations, HttpContext context) =>

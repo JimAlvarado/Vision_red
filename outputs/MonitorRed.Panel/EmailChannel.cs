@@ -13,7 +13,7 @@ public sealed record EmailAuthorization(string State, string? UserCode = null, s
 public sealed record EmailReceipt(string RequestId, string Recipient, string Subject, string State,
     DateTimeOffset UpdatedAtUtc, string? Error = null, string? ProviderRequestId = null);
 
-public sealed class EmailChannel : IDisposable, IAlertTransport
+public sealed class EmailChannel : IDisposable, IAlertTransport, IManualEmailTransport
 {
     private static readonly string[] Scopes = ["https://graph.microsoft.com/Mail.Send"];
     private volatile EmailSettings settings;
@@ -205,7 +205,8 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
     }
 
     // Manual messages from the local editor (mobile invitations); independent of the automatic channels.
-    public async Task<EmailDelivery> SendDirectAsync(string recipient, string subject, string html, CancellationToken cancellation)
+    public async Task<EmailDelivery> SendDirectAsync(string recipient, string subject, string html, CancellationToken cancellation,
+        Func<EmailDelivery?>? beforeSend = null, Action<EmailDelivery>? afterSend = null, string? requestId = null)
     {
         await sendGate.WaitAsync(cancellation);
         try
@@ -214,16 +215,22 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
             try { token = await AcquireTokenAsync(cancellation); }
             catch (Exception ex) when (ex is MsalException or InvalidOperationException or HttpRequestException or CryptographicException)
             { return new("failed", "El buzón de Vision no está autorizado. Revisa Configuración → Correo."); }
-            return await PostMailAsync(token, subject, html, [recipient], cancellation);
+            // Revalidate after waiting for the mailbox and authorization, immediately before submission.
+            cancellation.ThrowIfCancellationRequested();
+            if (beforeSend?.Invoke() is { } blocked) return blocked;
+            var result = await PostMailAsync(token, subject, html, [recipient], cancellation, requestId);
+            afterSend?.Invoke(result);
+            return result;
         }
         finally { sendGate.Release(); }
     }
 
-    private async Task<EmailDelivery> PostMailAsync(AuthenticationResult token, string subject, string html, string[] recipients, CancellationToken cancellation)
+    private async Task<EmailDelivery> PostMailAsync(AuthenticationResult token, string subject, string html, string[] recipients, CancellationToken cancellation, string? requestId = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://graph.microsoft.com/v1.0/me/sendMail");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
-        request.Headers.Add("client-request-id", Guid.NewGuid().ToString());
+        var clientId = requestId ?? Guid.NewGuid().ToString();
+        request.Headers.Add("client-request-id", clientId);
         request.Content = JsonContent.Create(new
         {
             message = new
@@ -239,24 +246,54 @@ public sealed class EmailChannel : IDisposable, IAlertTransport
         {
             using var response = await http.SendAsync(request, cancellation);
             var providerId = response.Headers.TryGetValues("request-id", out var ids) ? ids.FirstOrDefault() : null;
-            if (response.StatusCode == HttpStatusCode.Accepted) return new("accepted", ProviderRequestId: providerId);
+            if (response.StatusCode == HttpStatusCode.Accepted) return new("accepted", ProviderRequestId: providerId, HttpStatus: 202, ClientRequestId: clientId);
+            var errorCode = await ReadErrorCodeAsync(response, cancellation);
             if ((int)response.StatusCode == 429)
             {
                 var after = response.Headers.RetryAfter?.Delta?.TotalSeconds ??
                     (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow)?.TotalSeconds ?? 60;
-                return new("retry", "Microsoft limitó temporalmente el envío.", providerId, (int)Math.Clamp(after, 5, 3600), Throttled: true);
+                return new("retry", "Microsoft limitó temporalmente el envío.", providerId, (int)Math.Clamp(after, 5, 3600), Throttled: true,
+                    HttpStatus: 429, ProviderErrorCode: errorCode, ClientRequestId: clientId);
             }
             if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
                 forceRefresh = true;
                 lock (authGate) authorization = new("error", Error: "Microsoft rechazó la sesión. Vuelve a autorizar el buzón.");
-                return new("retry", "Microsoft rechazó la sesión de correo.", providerId, 60);
+                return new("retry", "Microsoft rechazó la sesión de correo.", providerId, 60,
+                    HttpStatus: 401, ProviderErrorCode: errorCode, ClientRequestId: clientId);
             }
             return new((int)response.StatusCode >= 500 ? "unknown" : "failed",
-                $"Microsoft devolvió HTTP {(int)response.StatusCode}." + ((int)response.StatusCode >= 500 ? " Revisar Elementos enviados antes de repetir." : ""), providerId);
+                $"Microsoft devolvió HTTP {(int)response.StatusCode}." + (errorCode is null ? "" : $" Código: {errorCode}.") +
+                ((int)response.StatusCode >= 500 ? " Revisar Elementos enviados antes de repetir." : ""), providerId,
+                HttpStatus: (int)response.StatusCode, ProviderErrorCode: errorCode, ClientRequestId: clientId);
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
-        { return new("unknown", "No se recibió confirmación del envío. Revisar Elementos enviados antes de repetir."); }
+        { return new("unknown", "No se recibió confirmación del envío. Revisar Elementos enviados antes de repetir.", ClientRequestId: clientId); }
+    }
+
+    // Keep only Graph's symbolic code, never its message/body (which may contain private data).
+    public static async Task<string?> ReadErrorCodeAsync(HttpResponseMessage response, CancellationToken token)
+    {
+        try
+        {
+            await using var stream = await response.Content.ReadAsStreamAsync(token);
+            var bytes = new byte[8193];
+            var count = 0;
+            while (count < bytes.Length)
+            {
+                var read = await stream.ReadAsync(bytes.AsMemory(count), token);
+                if (read == 0) break;
+                count += read;
+            }
+            if (count > 8192) return null;
+            using var document = JsonDocument.Parse(bytes.AsMemory(0, count));
+            if (document.RootElement.ValueKind != JsonValueKind.Object ||
+                !document.RootElement.TryGetProperty("error", out var error) || error.ValueKind != JsonValueKind.Object ||
+                !error.TryGetProperty("code", out var code) || code.ValueKind != JsonValueKind.String) return null;
+            var value = code.GetString();
+            return value is { Length: > 0 and <= 80 } && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-') ? value : null;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or HttpRequestException or OperationCanceledException) { return null; }
     }
 
     public async Task<object> StatusAsync(SendingLimit? limit = null)

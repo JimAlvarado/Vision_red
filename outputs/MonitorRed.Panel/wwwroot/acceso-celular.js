@@ -2,6 +2,8 @@ let signature = '', loading = false, latest = null, sending = false;
 // Requires a dotted domain such as empresa.com, like the server.
 const validEmailDomain = address => { const domain = address.split('@').pop() || ''; return domain.includes('.') && !domain.startsWith('.') && !domain.endsWith('.') && !domain.includes('..'); };
 const invitationFor = (data, slot) => (data?.invitations || []).find(item => item.slot === slot);
+const receiptFor = (data, slot) => (data?.invitationReceipts || []).filter(item => item.slot === slot).at(-1);
+const uncertainFor = (data, slot) => ['unknown', 'sending'].includes((data?.invitationReceipts || []).filter(item => item.slot === slot && ['accepted', 'unknown', 'sending'].includes(item.state)).at(-1)?.state);
 const freeSlots = data => (data?.codes || [data?.code]).map((_, index) => index + 1).filter(slot => !(data.accesses || []).find(item => item.slot === slot)?.inUse);
 function updateInviteHint() {
   const hint = document.getElementById('inviteHint');
@@ -9,6 +11,7 @@ function updateInviteHint() {
   const slot = Number(document.getElementById('inviteSlot').value);
   const invitation = slot ? invitationFor(latest, slot) : null;
   hint.textContent = !freeSlots(latest).length ? 'Todos los códigos están en uso. Libera uno para invitar a otra persona.' :
+    uncertainFor(latest, slot) ? 'Hay un envío sin confirmar. Revisa Elementos enviados o pide la traza de correo antes de repetirlo.' :
     invitation ? 'Este código ya se envió a ' + invitation.email + '. Si lo envías a otra persona, solo una podrá usarlo a la vez.' :
     'La persona recibirá el código, el enlace y los pasos para entrar desde su celular o tablet.';
 }
@@ -18,7 +21,7 @@ function renderInviteOptions(data) {
   for (const slot of free) {
     const option = document.createElement('option'), invitation = invitationFor(data, slot);
     option.value = String(slot);
-    option.textContent = 'Código ' + slot + ' · Libre' + (invitation ? ' · ya enviado a ' + invitation.email : '');
+    option.textContent = 'Código ' + slot + ' · Libre' + (uncertainFor(data, slot) ? ' · envío sin confirmar' : invitation ? ' · ya enviado a ' + invitation.email : '');
     select.append(option);
   }
   if (!free.length) { const option = document.createElement('option'); option.value = ''; option.textContent = 'No hay códigos libres'; select.append(option); }
@@ -44,12 +47,15 @@ async function loadAccess() {
     (data.codes || [data.code]).forEach((code, index) => {
       const access = (data.accesses || []).find(item => item.slot === index + 1);
       const invitation = invitationFor(data, index + 1);
+      const receipt = receiptFor(data, index + 1);
       const row = document.createElement('div'); row.className = 'access-row';
       const label = document.createElement('p'); label.className = 'label'; label.textContent = 'Código ' + (index + 1);
       const value = document.createElement('strong'); value.textContent = code;
       const state = document.createElement('p'); state.className = 'access-state';
       state.textContent = (access?.inUse ? 'En uso · ' + (access.device || 'Navegador de consulta') : 'Libre') +
-        (invitation ? ' · Invitación enviada a ' + invitation.email + ' el ' + VisionTime.dateTime(invitation.sentAtUtc) : '');
+        (receipt ? ' · Última invitación a ' + receipt.email + ': ' +
+          (receipt.state === 'accepted' ? 'aceptada por Microsoft' : receipt.state === 'failed' ? 'no enviada' : 'sin confirmar') +
+          ' el ' + VisionTime.dateTime(receipt.updatedAtUtc) : invitation ? ' · Invitación enviada a ' + invitation.email + ' el ' + VisionTime.dateTime(invitation.sentAtUtc) : '');
       row.append(label, value, state);
       if (access?.inUse) {
         const release = document.createElement('button'); release.type = 'button'; release.textContent = 'Liberar acceso';
@@ -95,18 +101,22 @@ document.getElementById('inviteForm').addEventListener('submit', async event => 
   const slot = Number(document.getElementById('inviteSlot').value);
   if (!slot) return;
   const invitation = invitationFor(latest, slot);
+  const confirmUncertain = uncertainFor(latest, slot);
+  if (confirmUncertain && !window.confirm('Hay un envío sin confirmar para este código. Revisa Elementos enviados o la traza de correo antes de repetirlo. ¿Ya verificaste y quieres preparar otra invitación? Podría duplicar un correo anterior.')) return;
   const warning = invitation && invitation.email.toLowerCase() !== email.toLowerCase() ? '\n\nEste código ya se envió a ' + invitation.email + '; solo una persona podrá usarlo a la vez.' : '';
   if (!window.confirm('¿Enviar a ' + email + ' una invitación con el código ' + slot + '?' + warning)) return;
   sending = true; button.disabled = true; button.textContent = 'Enviando…'; result.textContent = '';
   try {
     const response = await fetch('/api/mobile/invite', {
-      method: 'POST', cache: 'no-store', headers: { 'X-Topology-Editor': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ email, slot })
+      method: 'POST', cache: 'no-store', headers: { 'X-Topology-Editor': '1', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, slot, requestId: crypto.randomUUID(), confirmUncertain })
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'No se pudo enviar la invitación.');
+    if (!response.ok) throw new Error((data.error || 'No se pudo enviar la invitación.') + (data.requestId ? ' Referencia: ' + data.requestId : '') + (data.warning ? ' ' + data.warning : ''));
     result.textContent = 'Invitación enviada a ' + data.email + ' con el código ' + data.slot + '. Microsoft aceptó el envío; pide a la persona revisar también el correo no deseado.';
+    if (data.warning) result.textContent += ' ' + data.warning + ' Referencia: ' + data.requestId;
     input.value = '';
-  } catch (error) { result.textContent = error.message; }
+  } catch (error) { result.textContent = error.message === 'Failed to fetch' ? 'Se perdió la respuesta. Consulta el estado y revisa Elementos enviados antes de repetir la invitación.' : error.message; }
   finally { sending = false; button.textContent = 'Enviar invitación'; signature = ''; await loadAccess(); }
 });
 loadAccess();

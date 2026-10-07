@@ -73,7 +73,40 @@ public sealed class EventRepository
     public static string CsvRow(IEnumerable<string?> values) => string.Join(",",values.Select(v=>"\""+(v??"").Replace("\"","\"\"")+"\""))+"\r\n";
     public void Table(string name, IEnumerable<IEnumerable<string?>> rows)
     {
-        var content=string.Concat(rows.Select(CsvRow));var target=Path.Combine(DirectoryPath,name+".csv");
-        lock(gate) { if(File.Exists(target)&&File.ReadAllText(target)==content)return;File.WriteAllText(target+".tmp",content,new UTF8Encoding(false));File.Move(target+".tmp",target,true); }
+        if (string.IsNullOrEmpty(name) || name.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '_'))
+            throw new ArgumentException("Nombre de tabla CSV inválido.", nameof(name));
+        var content = string.Concat(rows.Select(CsvRow));
+        var target = Path.Combine(DirectoryPath, name + ".csv");
+        var temporary = target + ".tmp";
+        lock (gate)
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    if (File.Exists(target) && File.ReadAllText(target) == content) return;
+                    using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
+                    {
+                        var bytes = Encoding.UTF8.GetBytes(content);
+                        stream.Write(bytes);
+                        stream.Flush(true);
+                    }
+                    // Replacement either succeeds or preserves the old table; never delete it first.
+                    File.Move(temporary, target, true);
+                    return;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    if (attempt >= 3)
+                        throw new IOException($"No se pudo exportar {name}.csv después de 4 intentos ({ex.GetType().Name}, 0x{ex.HResult:X8}). La tabla anterior se conserva.", ex);
+                    Thread.Sleep(50 * (attempt + 1));
+                }
+                finally
+                {
+                    try { if (File.Exists(temporary)) File.Delete(temporary); }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                }
+            }
+        }
     }
 }

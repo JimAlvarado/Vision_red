@@ -1,5 +1,10 @@
 public sealed record EmailDelivery(string State, string? Error = null, string? ProviderRequestId = null, int? RetryAfterSeconds = null,
-    bool Throttled = false);
+    bool Throttled = false, int? HttpStatus = null, string? ProviderErrorCode = null, string? ClientRequestId = null);
+public interface IManualEmailTransport
+{
+    Task<EmailDelivery> SendDirectAsync(string recipient, string subject, string html, CancellationToken cancellation,
+        Func<EmailDelivery?>? beforeSend = null, Action<EmailDelivery>? afterSend = null, string? requestId = null);
+}
 public interface IAlertTransport
 {
     bool AutomaticAlertsEnabled { get; }

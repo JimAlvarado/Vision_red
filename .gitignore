@@ -32,6 +32,7 @@
 /work/tooling/test-volumen/*
 !/work/tooling/test-volumen/TestVolumen.csproj
 !/work/tooling/test-volumen/Program.cs
+!/work/tooling/test-volumen/DeliveryReliabilityTests.cs
 
 # Estado privado y operativo: nunca se sube ni se reemplaza con pull.
 outputs/MonitorRed.Panel/datos/
