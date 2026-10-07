@@ -13,6 +13,7 @@ builder.WebHost.UseUrls(mobileNetwork.ListeningOnVpn
     ? ["http://127.0.0.1:5080", "http://127.0.0.1:5081", mobileNetwork.Url]
     : ["http://127.0.0.1:5080", "http://127.0.0.1:5081"]);
 builder.Services.AddSingleton(mobileNetwork);
+builder.Services.AddSingleton<IMobileFirewall>(new MobileFirewall(Path.Combine(builder.Environment.ContentRootPath, "MonitorRed.Panel.exe")));
 var monitorTopologyPath = Path.Combine(monitorDataDir, "topologia.json");
 var monitorSettingsPath = Path.Combine(monitorDataDir, "monitor-settings.json");
 if (!File.Exists(monitorSettingsPath))
@@ -159,6 +160,16 @@ app.MapGet("/api/mobile/access", (MobileAccess mobile, MobileInvitations invitat
 app.MapPost("/api/mobile/access/{slot:int}/release", (int slot, MobileAccess mobile) => mobile.Release(slot));
 app.MapPost("/api/mobile/invite", (MobileInvitationRequest input, MobileInvitations invitations, HttpContext context) =>
     invitations.SendAsync(input, context.RequestAborted));
+app.MapPut("/api/mobile/networks", (MobileNetworkRequest input, VpnMobileNetwork network, IMobileFirewall firewall, ILogger<VpnMobileNetwork> logger) =>
+{
+    try { return Results.Ok(new { allowedSubnets = network.UpdateAllowedSubnets(input.AllowedSubnets, firewall), applied = true }); }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException or InvalidOperationException or JsonException)
+    {
+        logger.LogWarning("No se pudieron guardar las redes móviles ({Type}, 0x{Code:X8}). Revisar regla VisionServidorVPN y permisos de la cuenta del servicio.", ex.GetType().Name, ex.HResult);
+        return Results.Json(new { error = "No se aplicaron los rangos. Revisa en Server la regla VisionServidorVPN, los permisos de la cuenta de Vision para actualizar el firewall y el archivo de configuración." }, statusCode: 503);
+    }
+});
 app.MapPost("/api/mobile/login", (HttpContext context, MobileLogin input, MobileAccess mobile) => mobile.Login(context, input));
 app.MapPost("/api/mobile/logout", (HttpContext context, MobileAccess mobile) => mobile.Logout(context));
 app.MapGet("/api/mobile/overview", (NotificationOutbox outbox, EmailChannel email) =>
@@ -267,5 +278,6 @@ record DisplaySettings(string TopologyTitle);
 record SoundAnnouncement(string Id,string Kind);
 record EmailRecipientsRequest(string[]? Recipients);
 record EmailAutomaticRequest(bool? Enabled);
+record MobileNetworkRequest(string[]? AllowedSubnets);
 
 

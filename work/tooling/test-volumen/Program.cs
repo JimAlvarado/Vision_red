@@ -268,6 +268,7 @@ var t0 = new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero);
 }
 
 await DeliveryReliabilityTests.Run(root, Check);
+MobileNetworkSettingsTests.Run(root, Check);
 Console.WriteLine(failures == 0 ? "\nTodas las pruebas pasaron. Sin correos reales." : $"\n{failures} pruebas fallaron.");
 return failures == 0 ? 0 : 1;
 
